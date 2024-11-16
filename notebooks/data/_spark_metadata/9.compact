@@ -1,0 +1,11 @@
+v1
+{"path":"file:///opt/notebooks/data/part-00000-514c29da-e9e3-48c4-860e-e92fd1b6228a-c000.csv","size":56,"isDir":false,"modificationTime":1731770475786,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-30c97487-98da-4407-9091-b87cd12b8280-c000.csv","size":14,"isDir":false,"modificationTime":1731770538136,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-a3b8b900-4b1e-4f79-b97d-d3489efdd806-c000.csv","size":14,"isDir":false,"modificationTime":1731770564646,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-edb0ded6-5c06-41d8-9007-c51aca7f4513-c000.csv","size":14,"isDir":false,"modificationTime":1731770974476,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-9e26f4de-eb4e-4dff-a192-da8c25524d3a-c000.csv","size":14,"isDir":false,"modificationTime":1731770983976,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-bd7b91c4-4570-445a-a2cc-a4bff620f726-c000.csv","size":14,"isDir":false,"modificationTime":1731771096716,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-8d024e66-91ad-4a56-8031-5845e8e651ac-c000.csv","size":14,"isDir":false,"modificationTime":1731771117766,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-4218b75d-ac86-4af7-a478-dafe0e48adf0-c000.csv","size":14,"isDir":false,"modificationTime":1731771140826,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-42a1c64d-249b-4714-b075-50658e1437f7-c000.csv","size":14,"isDir":false,"modificationTime":1731771369336,"blockReplication":1,"blockSize":33554432,"action":"add"}
+{"path":"file:///opt/notebooks/data/part-00000-cc592ca7-6d0a-4fe7-805c-9a3e07f49ac3-c000.csv","size":14,"isDir":false,"modificationTime":1731771399316,"blockReplication":1,"blockSize":33554432,"action":"add"}
