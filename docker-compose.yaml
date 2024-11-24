@@ -12,6 +12,17 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_DB=postgres
 
+  producer:
+    build:
+      context: ./data-generator
+      dockerfile: Dockerfile
+    container_name: producer
+    depends_on:
+      - postgres
+    volumes:
+      - ./data-generator:/app # Mount the current directory into the container
+    command: python generate_data.py # Command to run the script
+
   zookeeper:
     image: confluentinc/cp-zookeeper:6.2.0
     container_name: zookeeper

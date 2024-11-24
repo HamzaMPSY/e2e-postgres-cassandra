@@ -1,0 +1,4 @@
+loguru
+sqlalchemy
+psycopg2-binary
+Faker==0.7.4
