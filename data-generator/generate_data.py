@@ -95,27 +95,37 @@ if __name__ == "__main__":
 
     # create table if not exists already
     table_creation_queries = [
-        """CREATE table if not exists users (
-                user_id uuid PRIMARY KEY,
-                username VARCHAR ( 50 ) UNIQUE NOT NULL,
-                genre varchar(1) ,
-                region_id uuid
-            )""",
-        """CREATE TABLE if not exists regions(
-                region_id uuid PRIMARY KEY,
-                region_name VARCHAR (255) UNIQUE NOT NULL
-        )"""
+        """CREATE TABLE if not exists his_drugs(
+            product_id uuid PRIMARY KEY,
+            description VARCHAR (255) NOT NULL)""",
+        """CREATE TABLE if not exists his_devices(
+            product_id uuid PRIMARY KEY,
+            description VARCHAR (255) NOT NULL)""",
+        """CREATE TABLE if not exists his_medicals(
+            product_id uuid PRIMARY KEY,
+            description VARCHAR (255) NOT NULL)""",
+        """CREATE TABLE if not exists his_blabla(
+            product_id uuid PRIMARY KEY,
+            description VARCHAR (255) NOT NULL)"""
     ]
 
     queries = {
-        'users': {
-            'insert': '''insert into users values(:uuid, :username, :genre , :region_id)''',
-            'update': '''update users set username  = :username where user_id = :uuid''',
-            'delete': '''delete from users where user_id = :uuid''',
+        'his_drugs': {
+            'insert': '''insert into his_drugs values(:product_id, :desc)''',
+            'update': '''update his_drugs set description  = :desc where product_id = :product_id''',
         },
-        'regions': {
-            'insert': '''insert into regions values(:uuid, :region_name)'''
-        }
+        'his_devices': {
+            'insert': '''insert into his_devices values(:product_id, :desc)''',
+            'update': '''update his_devices set description  = :desc where product_id = :product_id''',
+        },
+        'his_medicals': {
+            'insert': '''insert into his_medicals values(:product_id, :desc)''',
+            'update': '''update his_medicals set description  = :desc where product_id = :product_id''',
+        },
+        'his_blabla': {
+            'insert': '''insert into his_blabla values(:product_id, :desc)''',
+            'update': '''update his_blabla set description  = :desc where product_id = :product_id''',
+        },
     }
 
     for query in table_creation_queries:
@@ -123,52 +133,40 @@ if __name__ == "__main__":
 
     while True:
         for table in queries.keys():
-            if table == 'regions':
-                query = queries[table]['insert']
-                params = {
-                    "uuid": {
-                        "type": 'value',
-                        "value": str(uuid.uuid4())
-                    },
-                    "region_name": {
-                        "type": 'value',
-                        "value": fake.city()
-                    }
+            query = queries[table]['insert']
+            params = {
+                "product_id": {
+                    "type": 'value',
+                    "value": str(uuid.uuid4())
+                },
+                "desc": {
+                    "type": 'value',
+                    "value": fake.name()
                 }
-                connection.execute(query=query, params=params)
-            if table == 'users':
-                query = queries[table]['insert']
-                params = {
-                    "uuid": {
-                        "type": 'value',
-                        "value": str(uuid.uuid4())
-                    },
-                    "username": {
-                        "type": 'value',
-                        "value": fake.name()
-                    },
-                    "genre": {
-                        "type": 'value',
-                        "value": random.choice(['M', 'F'])
-                    },
-                    "region_id": {
-                        "type": 'value',
-                        "value": str(connection.execute(query="SELECT region_id FROM regions ORDER BY RANDOM() LIMIT 1", params={})[0][0])
-                    }
-                }
-                connection.execute(query=query, params=params)
+            }
+            connection.execute(query=query, params=params)
 
-                query = queries[table]['update']
-                params = {
-                    "uuid": {
-                        "type": 'value',
-                        "value": str(connection.execute(query="SELECT user_id FROM users ORDER BY RANDOM() LIMIT 1", params={})[0][0])
-                    },
-                    "username": {
-                        "type": 'value',
-                        "value": fake.name()
-                    },
+            logger.info(params)
 
-                }
-                connection.execute(query=query, params=params)
-        time.sleep(600)
+            query = queries[table]['update']
+            params = {
+                "product_id": {
+                    "type": 'value',
+                    "value": str(connection.execute(query="SELECT product_id FROM :table ORDER BY RANDOM() LIMIT 1",
+                                                    params={
+                                                        "table": {
+                                                            "type": 'table',
+                                                            "value": table
+                                                        }
+                                                    }
+                                                    )[0][0])
+                },
+                "desc": {
+                    "type": 'value',
+                    "value": fake.name()
+                },
+
+            }
+            logger.info(params)
+            connection.execute(query=query, params=params)
+        time.sleep(10)

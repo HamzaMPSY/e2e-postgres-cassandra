@@ -10,6 +10,6 @@
         "database.dbname": "postgres",
         "database.server.name": "postgres_db",
         "topic.prefix": "debezium",
-        "table.include.list": "public.users,public.regions"
+        "table.include.list": "public.his_devices,public.his_drugs,public.his_medicals,public.his_blabla"
     }
 }
