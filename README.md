@@ -31,7 +31,7 @@ to set up the cassandra database to ingest data
 1- create the keyspace that would hold the tables
 
 ```sql
-CREATE KEYSPACE db_users
+CREATE KEYSPACE db_amo
 WITH REPLICATION = {
    'class' : 'SimpleStrategy',
    'replication_factor' : 1
@@ -42,13 +42,14 @@ use db_users;
 2- create the regions table
 
 ```sql
-CREATE TABLE regions (
-   region_id text,
-   region_name text,
+CREATE TABLE his_acts (
+   product_id text,
+   description text,
    ts_ms TIMESTAMP,
    op text,
-   PRIMARY KEY (region_id, ts_ms)
+   PRIMARY KEY (product_id, ts_ms)
 );
+
 ```
 
 3- create the users table
