@@ -97,7 +97,9 @@ if __name__ == "__main__":
     table_creation_queries = [
         """CREATE TABLE if not exists his_drugs(
             product_id uuid PRIMARY KEY,
-            description VARCHAR (255) NOT NULL)""",
+            description VARCHAR (255) NOT NULL,
+            dci_code VARCHAR (255) NOT NULL,
+            dci_description VARCHAR (255) NOT NULL)""",
         """CREATE TABLE if not exists his_devices(
             product_id uuid PRIMARY KEY,
             description VARCHAR (255) NOT NULL)""",
@@ -111,7 +113,7 @@ if __name__ == "__main__":
 
     queries = {
         'his_drugs': {
-            'insert': '''insert into his_drugs values(:product_id, :desc)''',
+            'insert': '''insert into his_drugs values(:product_id, :desc, :dci_code, :dci_description)''',
             'update': '''update his_drugs set description  = :desc where product_id = :product_id''',
         },
         'his_devices': {
@@ -133,20 +135,44 @@ if __name__ == "__main__":
 
     while True:
         for table in queries.keys():
-            query = queries[table]['insert']
-            params = {
-                "product_id": {
-                    "type": 'value',
-                    "value": str(uuid.uuid4())
-                },
-                "desc": {
-                    "type": 'value',
-                    "value": fake.name()
+            if table == 'his_drugs':
+                query = queries[table]['insert']
+                params = {
+                    "product_id": {
+                        "type": 'value',
+                        "value": str(uuid.uuid4())
+                    },
+                    "desc": {
+                        "type": 'value',
+                        "value": fake.name()
+                    },
+                    "dci_code": {
+                        "type": 'value',
+                        "value": fake.name()
+                    },
+                    "dci_description": {
+                        "type": 'value',
+                        "value": fake.name()
+                    }
                 }
-            }
-            connection.execute(query=query, params=params)
+                connection.execute(query=query, params=params)
 
-            logger.info(params)
+                logger.info(params)
+            else:
+                query = queries[table]['insert']
+                params = {
+                    "product_id": {
+                        "type": 'value',
+                        "value": str(uuid.uuid4())
+                    },
+                    "desc": {
+                        "type": 'value',
+                        "value": fake.name()
+                    }
+                }
+                connection.execute(query=query, params=params)
+
+                logger.info(params)
 
             query = queries[table]['update']
             params = {

@@ -7,8 +7,37 @@
 Run the Following commands in your postgres database console to enable replication on the tables that you wanna capture the changes
 
 ```sql
-ALTER TABLE SCHEMA_NAME.TABLE_NAME REPLICA IDENTITY FULL;
-ALTER SYSTEM SET wal_level = 'logical';
+ALTER SYSTEM SET wal_level = 'logical'
+
+CREATE TABLE if not exists his_drugs(
+    product_id uuid PRIMARY KEY,
+    description VARCHAR (255) NOT NULL,
+    dci_code VARCHAR (255) NOT NULL,
+    dci_description VARCHAR (255) NOT NULL);
+
+
+CREATE TABLE if not exists his_devices(
+   product_id uuid PRIMARY KEY,
+   description VARCHAR (255) NOT NULL
+);
+
+
+CREATE TABLE if not exists his_medicals(
+   product_id uuid PRIMARY KEY,
+   description VARCHAR (255) NOT NULL
+);
+
+
+CREATE TABLE if not exists his_blabla(
+   product_id uuid PRIMARY KEY,
+   description VARCHAR (255) NOT NULL
+);
+
+ALTER TABLE public.his_devices REPLICA IDENTITY FULL;
+ALTER TABLE public.his_drugs REPLICA IDENTITY FULL;
+ALTER TABLE public.his_medicals REPLICA IDENTITY FULL;
+ALTER TABLE public.his_blabla REPLICA IDENTITY FULL;
+
 ```
 
 Make sure you restart the whole project, kill processes using CRTL-C and re-run 'sudo docker compose up'
@@ -45,23 +74,11 @@ use db_users;
 CREATE TABLE his_acts (
    product_id text,
    description text,
+   dci_code text,
+   dci_description text,
    ts_ms TIMESTAMP,
    op text,
    PRIMARY KEY (product_id, ts_ms)
 );
 
-```
-
-3- create the users table
-
-```sql
-CREATE TABLE users (
-   user_id text,
-   username text,
-   genre text,
-   region text,
-   ts_ms TIMESTAMP,
-   op text,
-   PRIMARY KEY (user_id, ts_ms)
-);
 ```
