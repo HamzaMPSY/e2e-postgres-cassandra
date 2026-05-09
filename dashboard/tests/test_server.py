@@ -7,11 +7,15 @@ from quality import quality_report
 from server import (
     ORDER_TO_CASH,
     PAYMENT_HEALTH,
+    QUALITY_FINDINGS,
     REVENUE_BY_DAY,
     SUPPORT_RISK,
     _freshness_window_seconds,
+    _prometheus_metric_sum,
+    _quality_threshold,
     _rows_from_response,
     _summary,
+    _warning_checks,
 )
 
 
@@ -57,6 +61,22 @@ class ServerTest(unittest.TestCase):
         for sql in (REVENUE_BY_DAY, PAYMENT_HEALTH, SUPPORT_RISK, ORDER_TO_CASH):
             self.assertIn("last_event_ts", sql)
 
+    def test_quality_findings_scans_serving_anomalies(self) -> None:
+        for expected in (
+            "negative_payment_facts",
+            "negative_refund_facts",
+            "null_customer_dimensions",
+            "null_product_dimensions",
+            "null_support_dimensions",
+            "unknown_payment_enums",
+            "unknown_inventory_enums",
+            "dim_customer_by_id",
+            "dim_product_by_id",
+            "fact_payment_by_day",
+            "fact_support_case_by_customer",
+        ):
+            self.assertIn(expected, QUALITY_FINDINGS)
+
     def test_quality_report_passes_coherent_snapshot(self) -> None:
         report = quality_report(
             generated_at=1_000,
@@ -83,6 +103,23 @@ class ServerTest(unittest.TestCase):
                 }
             ],
             order_cash=[{"order_id": "o1", "open_amount": 20}],
+            quality_findings=[
+                {
+                    "negative_payment_facts": 0,
+                    "negative_refund_facts": 0,
+                    "null_customer_dimensions": 0,
+                    "null_product_dimensions": 0,
+                    "null_order_dimensions": 0,
+                    "null_payment_dimensions": 0,
+                    "null_support_dimensions": 0,
+                    "null_inventory_dimensions": 0,
+                    "unknown_order_enums": 0,
+                    "unknown_payment_enums": 0,
+                    "unknown_refund_enums": 0,
+                    "unknown_support_enums": 0,
+                    "unknown_inventory_enums": 0,
+                }
+            ],
             max_event_age_seconds=60,
         )
 
@@ -102,6 +139,86 @@ class ServerTest(unittest.TestCase):
             check["name"] for check in report["checks"] if check["status"] == "fail"
         }
         self.assertIn("order_payment_reconciliation", failed_checks)
+
+    def test_quality_report_fails_raw_bad_facts(self) -> None:
+        report = quality_report(
+            generated_at=1_000,
+            revenue=[{"gross_revenue": 100, "order_lines": 1, "units_ordered": 1}],
+            payments=[{"payment_status": "captured", "amount": 80, "payment_count": 1}],
+            support=[{"ticket_count": 1}],
+            order_cash=[{"order_id": "o1", "open_amount": 20}],
+            quality_findings=[
+                {
+                    "negative_payment_facts": 1,
+                    "negative_refund_facts": 0,
+                    "null_customer_dimensions": 0,
+                    "null_product_dimensions": 0,
+                    "null_order_dimensions": 0,
+                    "null_payment_dimensions": 0,
+                    "null_support_dimensions": 1,
+                    "null_inventory_dimensions": 0,
+                    "unknown_order_enums": 0,
+                    "unknown_payment_enums": 1,
+                    "unknown_refund_enums": 0,
+                    "unknown_support_enums": 0,
+                    "unknown_inventory_enums": 0,
+                }
+            ],
+        )
+
+        self.assertEqual(report["overallStatus"], "fail")
+        failed_checks = {
+            check["name"] for check in report["checks"] if check["status"] == "fail"
+        }
+        self.assertIn("serving_payment_amounts_valid", failed_checks)
+        self.assertIn("serving_required_dimensions_present", failed_checks)
+        self.assertIn("serving_enum_values_known", failed_checks)
+
+    def test_quality_report_can_warn_for_configured_non_critical_rules(self) -> None:
+        report = quality_report(
+            generated_at=1_000,
+            revenue=[{"gross_revenue": 100, "order_lines": 1, "units_ordered": 1}],
+            payments=[{"payment_status": "captured", "amount": 80, "payment_count": 1}],
+            support=[{"ticket_count": 1}],
+            order_cash=[{"order_id": "o1", "open_amount": 20}],
+            operational_metrics={
+                "telemetryAvailable": True,
+                "dlqRecordCount": 3,
+                "quarantineRecordCount": 2,
+            },
+            warning_checks={"dlq_quarantine_thresholds"},
+            dlq_max_records=0,
+            quarantine_max_records=0,
+        )
+
+        warning_checks = {
+            check["name"] for check in report["checks"] if check["status"] == "warn"
+        }
+        self.assertEqual(report["overallStatus"], "warn")
+        self.assertIn("dlq_quarantine_thresholds", warning_checks)
+
+    def test_quality_env_helpers_parse_thresholds_and_warning_checks(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "DASHBOARD_DLQ_MAX_RECORDS": "7",
+                "DASHBOARD_QUALITY_WARNING_CHECKS": "a,b, c ",
+            },
+        ):
+            self.assertEqual(_quality_threshold("DASHBOARD_DLQ_MAX_RECORDS", 0), 7)
+            self.assertEqual(_warning_checks(), {"a", "b", "c"})
+
+    def test_prometheus_metric_sum_aggregates_labeled_metrics(self) -> None:
+        text = """
+# HELP ignored ignored
+omnicare_transformer_dlq_records_total{source_topic="a"} 2
+omnicare_transformer_dlq_records_total{source_topic="b"} 3
+other_metric 99
+"""
+        self.assertEqual(
+            _prometheus_metric_sum(text, "omnicare_transformer_dlq_records_total"),
+            5,
+        )
 
 
 if __name__ == "__main__":

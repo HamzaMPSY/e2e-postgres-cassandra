@@ -24,6 +24,10 @@ Checks:
 - `dashboard_queries_ok`: dashboard SQL queries must not return partial error rows.
 - `non_negative_row_counts`: aggregate row counts must not be negative.
 - `order_payment_reconciliation`: captured payments minus refunds must not exceed ordered revenue, and order open amounts must not go negative.
+- `serving_payment_amounts_valid`: raw payment and refund facts in Cassandra must not contain negative source amounts.
+- `serving_required_dimensions_present`: serving facts must keep required order, payment, support, and inventory dimensions populated.
+- `serving_enum_values_known`: serving facts must use known status, method, priority, channel, reason, and movement-type values.
+- `dlq_quarantine_thresholds`: transformer DLQ and validation reject counters must stay within configured thresholds when transformer metrics are available.
 - `pipeline_event_freshness`: materialized events must be inside `DASHBOARD_FRESHNESS_MAX_AGE_SECONDS`.
 
 Default freshness window:
@@ -31,6 +35,21 @@ Default freshness window:
 ```text
 86400 seconds
 ```
+
+Default DLQ/quarantine thresholds:
+
+```text
+DASHBOARD_DLQ_MAX_RECORDS=0
+DASHBOARD_QUARANTINE_MAX_RECORDS=0
+```
+
+For checks that should warn instead of fail in a given environment, set a comma-separated list:
+
+```text
+DASHBOARD_QUALITY_WARNING_CHECKS=dlq_quarantine_thresholds
+```
+
+The CLI still exits non-zero for warnings unless `--allow-warnings` is used.
 
 ## CLI Gate
 
@@ -75,9 +94,13 @@ The metrics exporter emits:
 ```text
 omnicare_data_quality_overall_status{status="pass|warn|fail"}
 omnicare_data_quality_check_passed{check="...",status="..."}
+omnicare_data_quality_check_status{check="...",status="pass|warn|fail"}
+omnicare_data_quality_check_detail_value{check="...",metric="..."}
+omnicare_quality_dlq_records_total
+omnicare_quality_quarantine_records_total
 ```
 
-Prometheus alert rules fail fast on `overallStatus=fail` and warn on sustained `overallStatus=warn`.
+Prometheus alert rules fail fast on `overallStatus=fail`, warn on sustained `overallStatus=warn`, and warn immediately when DLQ or transformer validation reject counters increase.
 
 ## Transformer Guardrails
 
@@ -102,3 +125,4 @@ These gates are intentionally deterministic and dashboard-focused. In a real pro
 - DLQ count by source topic and deployment version.
 - Per-source freshness SLOs instead of one global dashboard window.
 - Reconciliation tolerance windows for asynchronous payments and refunds.
+- Environment-specific rule severity. For example, strict production can fail on any DLQ growth, while a test environment can downgrade known chaos-test rules to warnings.

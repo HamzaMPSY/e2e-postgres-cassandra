@@ -14,18 +14,32 @@ def quality_report(
     payments: list[dict[str, Any]],
     support: list[dict[str, Any]],
     order_cash: list[dict[str, Any]],
+    quality_findings: list[dict[str, Any]] | None = None,
+    operational_metrics: dict[str, Any] | None = None,
+    warning_checks: set[str] | None = None,
+    dlq_max_records: int = 0,
+    quarantine_max_records: int = 0,
     max_event_age_seconds: int = DEFAULT_MAX_EVENT_AGE_SECONDS,
 ) -> dict[str, Any]:
     checks = [
-        _query_success_check(revenue, payments, support, order_cash),
+        _query_success_check(revenue, payments, support, order_cash, quality_findings or []),
         _row_count_check(revenue, payments, support),
         _amount_reconciliation_check(revenue, payments, order_cash),
+        _payment_amount_anomaly_check(quality_findings or []),
+        _required_dimensions_check(quality_findings or []),
+        _enum_domain_check(quality_findings or []),
+        _dlq_quarantine_threshold_check(
+            operational_metrics or {},
+            dlq_max_records=dlq_max_records,
+            quarantine_max_records=quarantine_max_records,
+        ),
         _freshness_check(
             generated_at,
             [*revenue, *payments, *support, *order_cash],
             max_event_age_seconds,
         ),
     ]
+    checks = _apply_warning_overrides(checks, warning_checks or set())
     statuses = {check["status"] for check in checks}
     if "fail" in statuses:
         overall = "fail"
@@ -129,6 +143,94 @@ def _amount_reconciliation_check(
     )
 
 
+def _payment_amount_anomaly_check(
+    quality_findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    findings = _quality_counts(quality_findings)
+    failures = {
+        "negativePaymentFacts": int(findings.get("negative_payment_facts", 0)),
+        "negativeRefundFacts": int(findings.get("negative_refund_facts", 0)),
+    }
+    total = sum(failures.values())
+    return _check(
+        "serving_payment_amounts_valid",
+        "fail" if total else "pass",
+        "raw payment and refund facts must not contain negative source amounts",
+        {"totalInvalidFacts": total, **failures},
+    )
+
+
+def _required_dimensions_check(
+    quality_findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    findings = _quality_counts(quality_findings)
+    failures = {
+        "nullCustomerDimensions": int(findings.get("null_customer_dimensions", 0)),
+        "nullProductDimensions": int(findings.get("null_product_dimensions", 0)),
+        "nullOrderDimensions": int(findings.get("null_order_dimensions", 0)),
+        "nullPaymentDimensions": int(findings.get("null_payment_dimensions", 0)),
+        "nullSupportDimensions": int(findings.get("null_support_dimensions", 0)),
+        "nullInventoryDimensions": int(findings.get("null_inventory_dimensions", 0)),
+    }
+    total = sum(failures.values())
+    return _check(
+        "serving_required_dimensions_present",
+        "fail" if total else "pass",
+        "serving facts must keep required dashboard dimensions populated",
+        {"totalInvalidFacts": total, **failures},
+    )
+
+
+def _enum_domain_check(
+    quality_findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    findings = _quality_counts(quality_findings)
+    failures = {
+        "unknownOrderEnums": int(findings.get("unknown_order_enums", 0)),
+        "unknownPaymentEnums": int(findings.get("unknown_payment_enums", 0)),
+        "unknownRefundEnums": int(findings.get("unknown_refund_enums", 0)),
+        "unknownSupportEnums": int(findings.get("unknown_support_enums", 0)),
+        "unknownInventoryEnums": int(findings.get("unknown_inventory_enums", 0)),
+    }
+    total = sum(failures.values())
+    return _check(
+        "serving_enum_values_known",
+        "fail" if total else "pass",
+        "serving facts must use known enum/domain values",
+        {"totalInvalidFacts": total, **failures},
+    )
+
+
+def _dlq_quarantine_threshold_check(
+    operational_metrics: dict[str, Any],
+    *,
+    dlq_max_records: int,
+    quarantine_max_records: int,
+) -> dict[str, Any]:
+    dlq_count = int(_number(operational_metrics.get("dlqRecordCount")))
+    quarantine_count = int(_number(operational_metrics.get("quarantineRecordCount")))
+    failures = []
+    if dlq_count > dlq_max_records:
+        failures.append("DLQ record count exceeds threshold")
+    if quarantine_count > quarantine_max_records:
+        failures.append("quarantine reject count exceeds threshold")
+
+    return _check(
+        "dlq_quarantine_thresholds",
+        "fail" if failures else "pass",
+        "DLQ and transformer quarantine counts must stay within configured thresholds",
+        {
+            "dlqRecordCount": dlq_count,
+            "dlqMaxRecords": dlq_max_records,
+            "quarantineRecordCount": quarantine_count,
+            "quarantineMaxRecords": quarantine_max_records,
+            "telemetryAvailable": bool(operational_metrics.get("telemetryAvailable")),
+            "metricsError": operational_metrics.get("metricsError"),
+            "failures": failures,
+        },
+    )
+
+
 def _freshness_check(
     generated_at: int,
     rows: list[dict[str, Any]],
@@ -170,6 +272,33 @@ def _check(name: str, status: str, description: str, details: dict[str, Any]) ->
         "description": description,
         "details": details,
     }
+
+
+def _apply_warning_overrides(
+    checks: list[dict[str, Any]],
+    warning_checks: set[str],
+) -> list[dict[str, Any]]:
+    if not warning_checks:
+        return checks
+
+    updated = []
+    for check in checks:
+        if check["status"] == "fail" and check["name"] in warning_checks:
+            details = dict(check.get("details") or {})
+            details["configuredAsWarning"] = True
+            check = {**check, "status": "warn", "details": details}
+        updated.append(check)
+    return updated
+
+
+def _quality_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    valid_rows = _valid_rows(rows)
+    if not valid_rows:
+        return {}
+    counts: dict[str, int] = {}
+    for key, value in valid_rows[0].items():
+        counts[key] = int(_number(value))
+    return counts
 
 
 def _valid_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

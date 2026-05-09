@@ -80,6 +80,7 @@ class DashboardData:
         payments = self._safe_query("payments", PAYMENT_HEALTH)
         support = self._safe_query("support", SUPPORT_RISK)
         order_cash = self._safe_query("orderCash", ORDER_TO_CASH)
+        quality_findings = self._safe_query("qualityFindings", QUALITY_FINDINGS)
         max_event_age_seconds = _freshness_window_seconds()
 
         return {
@@ -91,12 +92,21 @@ class DashboardData:
                 payments=payments,
                 support=support,
                 order_cash=order_cash,
+                quality_findings=quality_findings,
+                operational_metrics=_transformer_quality_metrics(),
+                warning_checks=_warning_checks(),
+                dlq_max_records=_quality_threshold("DASHBOARD_DLQ_MAX_RECORDS", 0),
+                quarantine_max_records=_quality_threshold(
+                    "DASHBOARD_QUARANTINE_MAX_RECORDS",
+                    0,
+                ),
                 max_event_age_seconds=max_event_age_seconds,
             ),
             "revenueByDay": revenue,
             "paymentHealth": payments,
             "supportRisk": support,
             "orderToCash": order_cash[:20],
+            "qualityFindings": quality_findings,
         }
 
     def _safe_query(self, name: str, sql: str) -> list[dict[str, Any]]:
@@ -145,6 +155,56 @@ def _freshness_window_seconds() -> int:
     except ValueError:
         return DEFAULT_MAX_EVENT_AGE_SECONDS
     return value if value > 0 else DEFAULT_MAX_EVENT_AGE_SECONDS
+
+
+def _quality_threshold(name: str, default: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
+def _warning_checks() -> set[str]:
+    raw = os.environ.get("DASHBOARD_QUALITY_WARNING_CHECKS", "")
+    return {item.strip() for item in raw.split(",") if item.strip()}
+
+
+def _transformer_quality_metrics() -> dict[str, Any]:
+    url = os.environ.get("TRANSFORMER_METRICS_URL", "").strip()
+    if not url:
+        return {}
+    try:
+        with urlopen(url, timeout=3) as response:
+            text = response.read().decode("utf-8")
+    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+        return {"telemetryAvailable": False, "metricsError": str(exc)}
+
+    return {
+        "telemetryAvailable": True,
+        "dlqRecordCount": _prometheus_metric_sum(
+            text,
+            "omnicare_transformer_dlq_records_total",
+        ),
+        "quarantineRecordCount": _prometheus_metric_sum(
+            text,
+            "omnicare_transformer_validation_rejects_total",
+        ),
+    }
+
+
+def _prometheus_metric_sum(text: str, metric_name: str) -> int:
+    total = 0.0
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        name, _, raw_value = line.partition(" ")
+        if name == metric_name or name.startswith(f"{metric_name}{{"):
+            try:
+                total += float(raw_value.strip())
+            except ValueError:
+                continue
+    return int(total)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -279,6 +339,176 @@ FROM orders o
 LEFT JOIN payments p
   ON p.order_id = o.order_id
 ORDER BY open_amount DESC, o.first_order_day DESC
+"""
+
+QUALITY_FINDINGS = """
+WITH payment_findings AS (
+  SELECT
+    sum(CASE WHEN amount_cents < 0 THEN 1 ELSE 0 END) AS negative_payment_facts,
+    sum(
+      CASE
+        WHEN payment_status IS NULL
+          OR payment_status NOT IN ('captured', 'failed', 'pending')
+          OR payment_method IS NULL
+          OR payment_method NOT IN ('card', 'wire', 'insurance')
+        THEN 1
+        ELSE 0
+      END
+    ) AS unknown_payment_enums,
+    sum(
+      CASE
+        WHEN payment_id IS NULL
+          OR invoice_id IS NULL
+          OR order_id IS NULL
+          OR customer_id IS NULL
+        THEN 1
+        ELSE 0
+      END
+    ) AS null_payment_dimensions
+  FROM cassandra.omnicare_dashboard.fact_payment_by_day
+),
+refund_findings AS (
+  SELECT
+    sum(CASE WHEN amount_cents < 0 THEN 1 ELSE 0 END) AS negative_refund_facts,
+    sum(
+      CASE
+        WHEN refund_reason IS NULL
+          OR refund_reason NOT IN (
+            'duplicate_charge',
+            'returned_goods',
+            'contract_adjustment'
+          )
+        THEN 1
+        ELSE 0
+      END
+    ) AS unknown_refund_enums
+  FROM cassandra.omnicare_dashboard.fact_refund_by_day
+),
+order_findings AS (
+  SELECT
+    sum(
+      CASE
+        WHEN order_id IS NULL
+          OR order_item_id IS NULL
+          OR customer_id IS NULL
+          OR product_id IS NULL
+        THEN 1
+        ELSE 0
+      END
+    ) AS null_order_dimensions,
+    sum(
+      CASE
+        WHEN order_status IS NULL
+          OR order_status NOT IN ('confirmed', 'allocated', 'shipped', 'backordered')
+          OR channel IS NULL
+          OR channel NOT IN ('portal', 'edi', 'sales_rep')
+        THEN 1
+        ELSE 0
+      END
+    ) AS unknown_order_enums
+  FROM cassandra.omnicare_dashboard.fact_order_line_by_day
+),
+support_findings AS (
+  SELECT
+    sum(
+      CASE
+        WHEN customer_id IS NULL
+          OR ticket_id IS NULL
+          OR priority IS NULL
+          OR status IS NULL
+        THEN 1
+        ELSE 0
+      END
+    ) AS null_support_dimensions,
+    sum(
+      CASE
+        WHEN priority IS NULL
+          OR priority NOT IN ('low', 'medium', 'high', 'critical')
+          OR status IS NULL
+          OR status NOT IN ('open', 'waiting_customer', 'resolved')
+        THEN 1
+        ELSE 0
+      END
+    ) AS unknown_support_enums
+  FROM cassandra.omnicare_dashboard.fact_support_case_by_customer
+),
+inventory_findings AS (
+  SELECT
+    sum(
+      CASE
+        WHEN product_id IS NULL
+          OR movement_id IS NULL
+          OR warehouse_id IS NULL
+        THEN 1
+        ELSE 0
+      END
+    ) AS null_inventory_dimensions,
+    sum(
+      CASE
+        WHEN movement_type IS NULL
+          OR movement_type NOT IN (
+            'receipt',
+            'shipment',
+            'adjustment_in',
+            'adjustment_out'
+          )
+        THEN 1
+        ELSE 0
+      END
+    ) AS unknown_inventory_enums
+  FROM cassandra.omnicare_dashboard.fact_inventory_movement_by_product
+),
+customer_findings AS (
+  SELECT
+    sum(
+      CASE
+        WHEN customer_id IS NULL
+          OR hospital_name IS NULL
+          OR segment IS NULL
+          OR city IS NULL
+          OR country IS NULL
+        THEN 1
+        ELSE 0
+      END
+    ) AS null_customer_dimensions
+  FROM cassandra.omnicare_dashboard.dim_customer_by_id
+),
+product_findings AS (
+  SELECT
+    sum(
+      CASE
+        WHEN product_id IS NULL
+          OR sku IS NULL
+          OR product_name IS NULL
+          OR product_category IS NULL
+          OR supplier_id IS NULL
+        THEN 1
+        ELSE 0
+      END
+    ) AS null_product_dimensions
+  FROM cassandra.omnicare_dashboard.dim_product_by_id
+)
+SELECT
+  COALESCE(payment_findings.negative_payment_facts, 0) AS negative_payment_facts,
+  COALESCE(refund_findings.negative_refund_facts, 0) AS negative_refund_facts,
+  COALESCE(customer_findings.null_customer_dimensions, 0) AS null_customer_dimensions,
+  COALESCE(product_findings.null_product_dimensions, 0) AS null_product_dimensions,
+  COALESCE(order_findings.null_order_dimensions, 0) AS null_order_dimensions,
+  COALESCE(payment_findings.null_payment_dimensions, 0) AS null_payment_dimensions,
+  COALESCE(support_findings.null_support_dimensions, 0) AS null_support_dimensions,
+  COALESCE(inventory_findings.null_inventory_dimensions, 0) AS null_inventory_dimensions,
+  COALESCE(order_findings.unknown_order_enums, 0) AS unknown_order_enums,
+  COALESCE(payment_findings.unknown_payment_enums, 0) AS unknown_payment_enums,
+  COALESCE(refund_findings.unknown_refund_enums, 0) AS unknown_refund_enums,
+  COALESCE(support_findings.unknown_support_enums, 0) AS unknown_support_enums,
+  COALESCE(inventory_findings.unknown_inventory_enums, 0) AS unknown_inventory_enums
+FROM payment_findings
+CROSS JOIN refund_findings
+CROSS JOIN order_findings
+CROSS JOIN support_findings
+CROSS JOIN inventory_findings
+CROSS JOIN customer_findings
+CROSS JOIN product_findings
 """
 
 

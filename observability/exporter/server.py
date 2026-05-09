@@ -13,14 +13,22 @@ from urllib.request import Request, urlopen
 CONNECT_URL = os.environ.get("CONNECT_URL", "http://connect:8083").rstrip("/")
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://dashboard:8080").rstrip("/")
 JOLOKIA_URL = os.environ.get("JOLOKIA_URL", "").rstrip("/")
+TRANSFORMER_METRICS_URL = os.environ.get("TRANSFORMER_METRICS_URL", "").rstrip("/")
 PORT = int(os.environ.get("EXPORTER_PORT", "8080"))
 
 
 class MetricsCollector:
-    def __init__(self, connect_url: str, dashboard_url: str, jolokia_url: str = ""):
+    def __init__(
+        self,
+        connect_url: str,
+        dashboard_url: str,
+        jolokia_url: str = "",
+        transformer_metrics_url: str = "",
+    ):
         self._connect_url = connect_url.rstrip("/")
         self._dashboard_url = dashboard_url.rstrip("/")
         self._jolokia_url = jolokia_url.rstrip("/")
+        self._transformer_metrics_url = transformer_metrics_url.rstrip("/")
 
     def collect(self) -> str:
         metrics: list[str] = [
@@ -30,6 +38,7 @@ class MetricsCollector:
         ]
         metrics.extend(self._connect_metrics())
         metrics.extend(self._debezium_jmx_metrics())
+        metrics.extend(self._transformer_quality_metrics())
         metrics.extend(self._dashboard_metrics())
         return "\n".join(metrics) + "\n"
 
@@ -92,6 +101,10 @@ class MetricsCollector:
             "# TYPE omnicare_pipeline_summary_value gauge",
             "# HELP omnicare_data_quality_check_passed Dashboard data quality check pass state.",
             "# TYPE omnicare_data_quality_check_passed gauge",
+            "# HELP omnicare_data_quality_check_status Dashboard data quality check status by state.",
+            "# TYPE omnicare_data_quality_check_status gauge",
+            "# HELP omnicare_data_quality_check_detail_value Numeric dashboard data quality check details.",
+            "# TYPE omnicare_data_quality_check_detail_value gauge",
             "# HELP omnicare_data_quality_overall_status Dashboard data quality overall status.",
             "# TYPE omnicare_data_quality_overall_status gauge",
         ]
@@ -110,6 +123,41 @@ class MetricsCollector:
             metrics.append("omnicare_dashboard_api_up 0")
             metrics.append(
                 f'omnicare_observability_error{{component="dashboard",message="{label_value(str(exc))}"}} 1'
+            )
+        return metrics
+
+    def _transformer_quality_metrics(self) -> list[str]:
+        metrics = [
+            "# HELP omnicare_quality_dlq_records_total Transformer DLQ records visible to quality monitoring.",
+            "# TYPE omnicare_quality_dlq_records_total counter",
+            "# HELP omnicare_quality_quarantine_records_total Transformer validation rejects visible to quality monitoring.",
+            "# TYPE omnicare_quality_quarantine_records_total counter",
+        ]
+        if not self._transformer_metrics_url:
+            metrics.extend(
+                [
+                    "omnicare_quality_dlq_records_total 0",
+                    "omnicare_quality_quarantine_records_total 0",
+                ]
+            )
+            return metrics
+        try:
+            text = http_text(self._transformer_metrics_url)
+            metrics.append(
+                "omnicare_quality_dlq_records_total "
+                f"{prometheus_metric_sum(text, 'omnicare_transformer_dlq_records_total')}"
+            )
+            metrics.append(
+                "omnicare_quality_quarantine_records_total "
+                f"{prometheus_metric_sum(text, 'omnicare_transformer_validation_rejects_total')}"
+            )
+        except Exception as exc:
+            metrics.extend(
+                [
+                    "omnicare_quality_dlq_records_total 0",
+                    "omnicare_quality_quarantine_records_total 0",
+                    f'omnicare_observability_error{{component="transformer_metrics",message="{label_value(str(exc))}"}} 1',
+                ]
             )
         return metrics
 
@@ -160,7 +208,33 @@ def data_quality_metrics(data_quality: Any) -> list[str]:
             f'omnicare_data_quality_check_passed{{check="{name}",status="{label_value(status)}"}} '
             f"{1 if status == 'pass' else 0}"
         )
+        for expected_status in ("pass", "warn", "fail"):
+            metrics.append(
+                "omnicare_data_quality_check_status"
+                f'{{check="{name}",status="{expected_status}"}} '
+                f"{1 if status == expected_status else 0}"
+            )
+        details = check.get("details") or {}
+        if isinstance(details, dict):
+            for key, value in sorted(details.items()):
+                if isinstance(value, int | float) and not isinstance(value, bool):
+                    metrics.append(
+                        "omnicare_data_quality_check_detail_value"
+                        f'{{check="{name}",metric="{label_value(str(key))}"}} '
+                        f"{numeric(value)}"
+                    )
     return metrics
+
+
+def prometheus_metric_sum(text: str, metric_name: str) -> float:
+    total = 0.0
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        name, _, raw_value = line.partition(" ")
+        if name == metric_name or name.startswith(f"{metric_name}{{"):
+            total += numeric(raw_value.strip())
+    return total
 
 
 def debezium_jolokia_metrics(jolokia_url: str) -> list[str]:
@@ -234,6 +308,12 @@ def http_json(url: str) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
+def http_text(url: str) -> str:
+    request = Request(url, headers={"Accept": "text/plain"})
+    with urlopen(request, timeout=8) as response:
+        return response.read().decode("utf-8")
+
+
 def label_value(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
 
@@ -246,7 +326,12 @@ def numeric(value: Any) -> float:
 
 
 class Handler(BaseHTTPRequestHandler):
-    collector = MetricsCollector(CONNECT_URL, DASHBOARD_URL, JOLOKIA_URL)
+    collector = MetricsCollector(
+        CONNECT_URL,
+        DASHBOARD_URL,
+        JOLOKIA_URL,
+        TRANSFORMER_METRICS_URL,
+    )
 
     def do_GET(self) -> None:
         if self.path == "/health":

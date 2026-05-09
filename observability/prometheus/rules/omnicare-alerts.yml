@@ -91,6 +91,33 @@ groups:
           summary: Transformer is publishing DLQ records
           description: DLQ records increased for source topic {{ $labels.source_topic }}.
 
+      - alert: OmniCareTransformerValidationRejects
+        expr: increase(omnicare_transformer_validation_rejects_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Transformer is quarantining invalid CDC rows
+          description: Validation rejects increased for {{ $labels.target_table }} with error {{ $labels.error_code }}.
+
+      - alert: OmniCareDlqSpike
+        expr: increase(omnicare_quality_dlq_records_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Quality exporter detected DLQ growth
+          description: DLQ records increased according to the project metrics exporter.
+
+      - alert: OmniCareQuarantineSpike
+        expr: increase(omnicare_quality_quarantine_records_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Quality exporter detected quarantine growth
+          description: Transformer validation rejects increased according to the project metrics exporter.
+
       - alert: OmniCareCassandraWriteLatencyHigh
         expr: rate(omnicare_transformer_cassandra_write_latency_seconds_sum[5m]) / rate(omnicare_transformer_cassandra_write_latency_seconds_count[5m]) > 1
         for: 5m

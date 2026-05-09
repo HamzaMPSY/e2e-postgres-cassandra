@@ -217,6 +217,10 @@ services:
     environment:
       TRINO_URL: http://trino:8080
       DASHBOARD_PORT: 8080
+      TRANSFORMER_METRICS_URL: http://transformer:8090/metrics
+      DASHBOARD_DLQ_MAX_RECORDS: ${DASHBOARD_DLQ_MAX_RECORDS:-0}
+      DASHBOARD_QUARANTINE_MAX_RECORDS: ${DASHBOARD_QUARANTINE_MAX_RECORDS:-0}
+      DASHBOARD_QUALITY_WARNING_CHECKS: ${DASHBOARD_QUALITY_WARNING_CHECKS:-}
 
   transformer:
     build:
@@ -265,6 +269,7 @@ services:
       CONNECT_URL: http://connect:8083
       DASHBOARD_URL: http://dashboard:8080
       JOLOKIA_URL: http://connect:8778/jolokia
+      TRANSFORMER_METRICS_URL: http://transformer:8090/metrics
       EXPORTER_PORT: 8080
 
   prometheus:

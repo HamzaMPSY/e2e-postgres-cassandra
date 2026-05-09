@@ -195,6 +195,12 @@ function shortId(value) {
 function qualityDetail(check) {
   const details = check.details || {};
   if (typeof details.ageSeconds === "number") return `${number.format(details.ageSeconds)}s`;
+  if (typeof details.totalInvalidFacts === "number") {
+    return `${number.format(details.totalInvalidFacts)} invalid`;
+  }
+  if (typeof details.dlqRecordCount === "number" || typeof details.quarantineRecordCount === "number") {
+    return `DLQ ${number.format(Number(details.dlqRecordCount || 0))} / quarantine ${number.format(Number(details.quarantineRecordCount || 0))}`;
+  }
   if (Array.isArray(details.failures) && details.failures.length) {
     return escapeHtml(details.failures[0]);
   }
