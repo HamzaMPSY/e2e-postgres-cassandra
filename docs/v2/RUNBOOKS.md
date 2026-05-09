@@ -285,6 +285,84 @@ Success criteria:
 - Dashboard values match the expected source-event window.
 - Incident notes include replay group ID and affected topics.
 
+## Runbook 5: Remove Bad Serving Facts And Replay Clean Data
+
+Use this when bad facts already reached Cassandra and the dashboard quality gate fails. The local helper is intentionally scoped: it deletes only rows matching an explicit business-id prefix or exact `source_position`, writes an artifact, and then runs the dashboard quality gate.
+
+Typical local recovery after an anomaly or manual bad-data test:
+
+1. Capture the failing dashboard state.
+
+```bash
+curl -fsS http://localhost:18090/api/dashboard \
+  -o artifacts/dashboard-before-recovery.json
+python tools/quality_gate.py \
+  --snapshot-file artifacts/dashboard-before-recovery.json
+```
+
+2. Preview the cleanup. Use anomaly prefixes for local bad-data runs, or use exact source positions from Cassandra facts when the bad rows came from a known CDC offset.
+
+```bash
+scripts/recover-bad-facts.sh \
+  --payment-id-prefix PAY-ANOM- \
+  --ticket-id-prefix TCK-ANOM- \
+  --report-file artifacts/recovery-report.json \
+  --dry-run
+```
+
+Exact source-position cleanup is also supported. This path uses `ALLOW FILTERING` only to discover primary keys for the explicit position; deletes still use full Cassandra primary keys.
+
+```bash
+scripts/recover-bad-facts.sh \
+  --source-position 'file:mysql-bin.000001|pos:12345' \
+  --report-file artifacts/recovery-report.json \
+  --dry-run
+```
+
+3. Execute the cleanup with explicit approval.
+
+```bash
+scripts/recover-bad-facts.sh \
+  --payment-id-prefix PAY-ANOM- \
+  --ticket-id-prefix TCK-ANOM- \
+  --report-file artifacts/recovery-report.json \
+  --yes
+```
+
+4. If the deleted rows represented legitimate corrected source data, replay clean CDC with a new group. For local anomaly rows that should not be restored, skip replay.
+
+```bash
+scripts/cdc-replay.sh \
+  --topic cdc.local.omnicare.mysql.billing.payments \
+  --group-id replay-after-bad-fact-cleanup-$(date -u +%Y%m%dT%H%M%SZ) \
+  --max-messages 5000 \
+  --idle-timeout-seconds 20
+```
+
+5. Verify dashboard quality after cleanup or replay.
+
+```bash
+curl -fsS http://localhost:18090/api/dashboard \
+  -o artifacts/dashboard-after-recovery.json
+python tools/quality_gate.py \
+  --snapshot-file artifacts/dashboard-after-recovery.json
+```
+
+The recovery report records:
+
+- Cleanup scope.
+- Matching rows before and after.
+- Deleted row count.
+- Dashboard quality before and after.
+- Final quality gate status.
+
+Success criteria:
+
+- `artifacts/recovery-report.json` has `matchingRowsAfter = 0`.
+- No unrelated demo rows were deleted; cleanup scope was a prefix or exact `source_position`.
+- Replay, when needed, uses `scripts/cdc-replay.sh` with a new consumer group.
+- Dashboard quality returns to `pass`, or the remaining failed checks are documented as a separate incident.
+
 ## Production Adaptation
 
 For AWS:
@@ -320,4 +398,5 @@ scripts/connect-connector.sh delete postgres-orders-local --yes
 
 scripts/request-resnapshot.sh --connector postgres-orders-local --data-collection public.customers
 scripts/cdc-replay.sh --topic cdc.local.omnicare.postgres.public.customers --max-messages 1000
+scripts/recover-bad-facts.sh --payment-id-prefix PAY-ANOM- --ticket-id-prefix TCK-ANOM- --yes
 ```

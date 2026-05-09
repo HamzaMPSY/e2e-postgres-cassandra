@@ -91,3 +91,5 @@ Use `--cleanup` when rerunning on a dirty local stack. The cleanup removes prior
 The harness runs the transformer with `podman compose run --rm --no-deps` and an isolated `KAFKA_GROUP_ID`. That keeps the command aligned with the image built by `podman compose` without requiring the long-running transformer container to be healthy, and it makes the anomaly consumer replayable without changing the default transformer group.
 
 If you added the MySQL checks to an existing local stack, recreate the MySQL data volume or apply equivalent `ALTER TABLE ... ADD CONSTRAINT` statements before expecting negative payment/refund source rejects. Mongo support-ticket validation is applied through `collMod` by `mongo/init.js`.
+
+If old manual anomaly rows already polluted Cassandra, use `scripts/recover-bad-facts.sh` and the bad-data recovery runbook in `docs/v2/RUNBOOKS.md` to delete only matching serving facts and write `artifacts/recovery-report.json`.

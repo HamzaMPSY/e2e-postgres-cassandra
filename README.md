@@ -116,9 +116,9 @@ scripts/anomaly-e2e.sh \
 Expected behavior:
 
 - PostgreSQL rejects invalid order rows at the source.
-- MySQL rejects `NULL` payment amounts at the source.
-- MySQL accepts semantically bad payment rows, then the transformer quarantines negative and impossible captured amounts.
-- MongoDB accepts malformed support tickets, then the transformer quarantines invalid support facts.
+- MySQL rejects `NULL` and negative financial amounts at the source.
+- MySQL accepts a semantically impossible captured payment, then the transformer quarantines it.
+- MongoDB rejects malformed support tickets at the source.
 - Cassandra dashboard tables do not receive the rejected support facts or bad captured payment facts.
 - The script writes `artifacts/anomaly-report.json` and runs the same dashboard quality gate used by the normal demo.
 
@@ -336,6 +336,7 @@ Common commands:
 ```bash
 scripts/cdc-replay.sh --topic cdc.local.omnicare.postgres.public.customers --max-messages 1000
 scripts/request-resnapshot.sh --connector postgres-orders-local --data-collection public.customers
+scripts/recover-bad-facts.sh --payment-id-prefix PAY-ANOM- --ticket-id-prefix TCK-ANOM- --yes
 scripts/connect-connector.sh status postgres-orders-local
 scripts/connect-connector.sh offsets postgres-orders-local
 ```
