@@ -6,18 +6,21 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
 CONNECT_URL = os.environ.get("CONNECT_URL", "http://connect:8083").rstrip("/")
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://dashboard:8080").rstrip("/")
+JOLOKIA_URL = os.environ.get("JOLOKIA_URL", "").rstrip("/")
 PORT = int(os.environ.get("EXPORTER_PORT", "8080"))
 
 
 class MetricsCollector:
-    def __init__(self, connect_url: str, dashboard_url: str):
+    def __init__(self, connect_url: str, dashboard_url: str, jolokia_url: str = ""):
         self._connect_url = connect_url.rstrip("/")
         self._dashboard_url = dashboard_url.rstrip("/")
+        self._jolokia_url = jolokia_url.rstrip("/")
 
     def collect(self) -> str:
         metrics: list[str] = [
@@ -26,6 +29,7 @@ class MetricsCollector:
             "omnicare_exporter_up 1",
         ]
         metrics.extend(self._connect_metrics())
+        metrics.extend(self._debezium_jmx_metrics())
         metrics.extend(self._dashboard_metrics())
         return "\n".join(metrics) + "\n"
 
@@ -50,6 +54,31 @@ class MetricsCollector:
             metrics.append("omnicare_kafka_connect_up 0")
             metrics.append(
                 f'omnicare_observability_error{{component="connect",message="{label_value(str(exc))}"}} 1'
+            )
+        return metrics
+
+    def _debezium_jmx_metrics(self) -> list[str]:
+        metrics = [
+            "# HELP omnicare_debezium_jmx_up Debezium Jolokia/JMX availability.",
+            "# TYPE omnicare_debezium_jmx_up gauge",
+            "# HELP omnicare_debezium_source_lag_milliseconds Debezium streaming source lag.",
+            "# TYPE omnicare_debezium_source_lag_milliseconds gauge",
+            "# HELP omnicare_debezium_events_seen_total Debezium events seen by connector.",
+            "# TYPE omnicare_debezium_events_seen_total counter",
+            "# HELP omnicare_debezium_events_filtered_total Debezium events filtered by connector.",
+            "# TYPE omnicare_debezium_events_filtered_total counter",
+        ]
+        if not self._jolokia_url:
+            metrics.append("omnicare_debezium_jmx_up 0")
+            return metrics
+
+        try:
+            metrics.append("omnicare_debezium_jmx_up 1")
+            metrics.extend(debezium_jolokia_metrics(self._jolokia_url))
+        except Exception as exc:
+            metrics.append("omnicare_debezium_jmx_up 0")
+            metrics.append(
+                f'omnicare_observability_error{{component="debezium_jmx",message="{label_value(str(exc))}"}} 1'
             )
         return metrics
 
@@ -103,6 +132,71 @@ def connector_metrics(name: str, status: Any) -> list[str]:
     return metrics
 
 
+def debezium_jolokia_metrics(jolokia_url: str) -> list[str]:
+    pattern = "debezium.*:type=connector-metrics,context=*,*"
+    search = http_json(f"{jolokia_url}/search/{quote(pattern, safe=':,*=')}")
+    mbeans = search.get("value") if isinstance(search, dict) else []
+    if not isinstance(mbeans, list):
+        raise RuntimeError("Jolokia search did not return a list")
+
+    metrics: list[str] = []
+    for mbean in sorted(str(item) for item in mbeans):
+        payload = http_json(f"{jolokia_url}/read/{quote(mbean, safe='')}")
+        values = payload.get("value") if isinstance(payload, dict) else {}
+        if not isinstance(values, dict):
+            continue
+        labels = debezium_labels(mbean)
+        lag = _first_metric_value(
+            values,
+            ("MilliSecondsBehindSource", "MillisecondsBehindSource"),
+        )
+        if lag is not None:
+            metrics.append(
+                f"omnicare_debezium_source_lag_milliseconds{labels} {lag}"
+            )
+        events_seen = _metric_value(values, "TotalNumberOfEventsSeen")
+        if events_seen is not None:
+            metrics.append(f"omnicare_debezium_events_seen_total{labels} {events_seen}")
+        events_filtered = _metric_value(values, "NumberOfEventsFiltered")
+        if events_filtered is not None:
+            metrics.append(
+                f"omnicare_debezium_events_filtered_total{labels} {events_filtered}"
+            )
+    return metrics
+
+
+def debezium_labels(mbean: str) -> str:
+    domain, _, properties = mbean.partition(":")
+    parsed: dict[str, str] = {"domain": domain}
+    for item in properties.split(","):
+        key, separator, value = item.partition("=")
+        if separator:
+            parsed[key] = value
+
+    connector = parsed.get("server") or parsed.get("connector") or parsed.get("name") or "unknown"
+    context = parsed.get("context") or "unknown"
+    return (
+        f'{{connector="{label_value(connector)}",'
+        f'context="{label_value(context)}",'
+        f'domain="{label_value(parsed.get("domain", "unknown"))}"}}'
+    )
+
+
+def _metric_value(values: dict[str, Any], name: str) -> float | None:
+    value = values.get(name)
+    if value is None:
+        return None
+    return numeric(value)
+
+
+def _first_metric_value(values: dict[str, Any], names: tuple[str, ...]) -> float | None:
+    for name in names:
+        metric = _metric_value(values, name)
+        if metric is not None:
+            return metric
+    return None
+
+
 def http_json(url: str) -> Any:
     request = Request(url, headers={"Accept": "application/json"})
     with urlopen(request, timeout=8) as response:
@@ -121,7 +215,7 @@ def numeric(value: Any) -> float:
 
 
 class Handler(BaseHTTPRequestHandler):
-    collector = MetricsCollector(CONNECT_URL, DASHBOARD_URL)
+    collector = MetricsCollector(CONNECT_URL, DASHBOARD_URL, JOLOKIA_URL)
 
     def do_GET(self) -> None:
         if self.path == "/health":

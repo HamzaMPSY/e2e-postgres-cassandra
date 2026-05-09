@@ -11,6 +11,11 @@ scrape_configs:
       - targets:
           - metrics-exporter:8080
 
+  - job_name: kafka-exporter
+    static_configs:
+      - targets:
+          - kafka-exporter:9308
+
   - job_name: omnicare-transformer
     static_configs:
       - targets:

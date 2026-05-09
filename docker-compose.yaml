@@ -49,8 +49,10 @@ services:
         condition: service_started
     ports:
       - "18083:8083"
+      - "18778:8778"
     environment:
       KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      ENABLE_JOLOKIA: "true"
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: omnicare-connect
       CONFIG_STORAGE_TOPIC: connect_configs
@@ -63,6 +65,19 @@ services:
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    container_name: omnicare-kafka-exporter
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "19308:9308"
+    command:
+      - "--kafka.server=kafka:9092"
+      - "--web.listen-address=:9308"
+      - "--group.filter=omnicare.*|connect.*"
 
   postgres-orders:
     image: postgres:16-alpine
@@ -237,6 +252,7 @@ services:
     environment:
       CONNECT_URL: http://connect:8083
       DASHBOARD_URL: http://dashboard:8080
+      JOLOKIA_URL: http://connect:8778/jolokia
       EXPORTER_PORT: 8080
 
   prometheus:
@@ -244,6 +260,7 @@ services:
     container_name: omnicare-prometheus
     depends_on:
       - metrics-exporter
+      - kafka-exporter
     ports:
       - "19090:9090"
     command:

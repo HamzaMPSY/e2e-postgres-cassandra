@@ -81,3 +81,39 @@ groups:
         annotations:
           summary: Cassandra write latency is high
           description: Average transformer Cassandra write latency is above one second over five minutes.
+
+      - alert: OmniCareKafkaExporterDown
+        expr: up{job="kafka-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kafka exporter is unavailable
+          description: Prometheus cannot scrape Kafka exporter, so consumer lag is invisible.
+
+      - alert: OmniCareTransformerConsumerLagHigh
+        expr: sum by (consumergroup) (kafka_consumergroup_lag{consumergroup="omnicare-cdc-transformer"}) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Transformer consumer lag is high
+          description: Consumer group {{ $labels.consumergroup }} is more than 1000 records behind.
+
+      - alert: OmniCareDebeziumJmxDown
+        expr: omnicare_debezium_jmx_up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Debezium JMX metrics are unavailable
+          description: Jolokia/JMX metrics cannot be read from Kafka Connect.
+
+      - alert: OmniCareDebeziumSourceLagHigh
+        expr: max by (connector) (omnicare_debezium_source_lag_milliseconds) > 60000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Debezium source lag is high
+          description: Connector {{ $labels.connector }} reports source lag above 60 seconds.

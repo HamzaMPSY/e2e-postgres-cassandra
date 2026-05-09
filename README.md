@@ -160,13 +160,15 @@ The local stack includes a first production-style observability slice:
 
 ```text
 http://localhost:18091/metrics  # project metrics exporter
+http://localhost:19308/metrics  # Kafka consumer lag exporter
+http://localhost:18778/jolokia  # Kafka Connect Jolokia/JMX endpoint
 http://localhost:19090          # Prometheus
 http://localhost:13000          # Grafana, admin/admin
 ```
 
-The exporter reads Kafka Connect status and the dashboard API snapshot, then exposes connector health, task health, dashboard API health, snapshot freshness, and dashboard summary values as Prometheus metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
+The exporter reads Kafka Connect status, Debezium JMX through Jolokia, and the dashboard API snapshot, then exposes connector health, task health, source lag, Debezium event throughput, dashboard API health, snapshot freshness, and dashboard summary values as Prometheus metrics. Kafka exporter adds consumer-group lag metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
 
-This is the starter operational layer. Full production hardening still needs Kafka consumer lag and Debezium/JMX internals for source lag and connector throughput.
+This is still a local observability profile, not a production monitoring platform. In production, wire the same metrics into managed Prometheus/Grafana or your platform standard, add retention, alert routing, SLOs, and service ownership.
 
 ## Production Rule
 
