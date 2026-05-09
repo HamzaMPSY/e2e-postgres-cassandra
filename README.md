@@ -54,6 +54,130 @@ CI runs the harness in a container-free dry-run smoke profile on every push and 
 
 The dashboard response includes data quality checks for query success, row counts, event freshness, and order-to-payment reconciliation. The live demo harness fails if `python tools/quality_gate.py` rejects the dashboard snapshot; details are in `docs/v2/DATA_QUALITY.md`.
 
+## Local Test Runbook
+
+Use these steps when you want to test the full local CDC flow and watch data arrive in the UI.
+
+### 1. Start the stack
+
+```bash
+cp .env.example .env
+podman compose --env-file .env -f docker-compose.yaml up -d
+```
+
+Check the main endpoints:
+
+```bash
+curl -fsS http://localhost:18090/health
+curl -fsS http://localhost:18083/connectors
+curl -fsS http://localhost:19090/-/ready
+```
+
+### 2. Register CDC connectors
+
+```bash
+ENV_FILE=.env scripts/register-connectors.sh
+scripts/connect-connector.sh status postgres-orders-local
+scripts/connect-connector.sh status mysql-billing-local
+scripts/connect-connector.sh status mongo-engagement-local
+```
+
+The connector status should become `RUNNING`.
+
+### 3. Run the guided E2E smoke test
+
+```bash
+scripts/demo-e2e.sh \
+  --max-events 25 \
+  --rate-per-second 5 \
+  --transformer-max-messages 300 \
+  --report-file artifacts/demo-report.json
+```
+
+This starts the stack if needed, registers connectors, generates data, runs a bounded transformer pass, verifies Cassandra row counts, checks the dashboard API, runs the data quality gate, and writes `artifacts/demo-report.json`.
+
+### 4. Run long-running data generation
+
+Install the generator once:
+
+```bash
+cd generator
+python -m pip install -e .
+cd ..
+```
+
+Run a 30-minute stream at 10 events per second:
+
+```bash
+omnicare-demo-generator \
+  --iterations 0 \
+  --duration-seconds 1800 \
+  --rate-per-second 10 \
+  --failure-rate 0.20 \
+  --refund-rate 0.10 \
+  --sla-breach-rate 0.15
+```
+
+For an open-ended run, omit `--duration-seconds` and stop it with `Ctrl+C`:
+
+```bash
+omnicare-demo-generator \
+  --iterations 0 \
+  --rate-per-second 5 \
+  --failure-rate 0.20 \
+  --refund-rate 0.10 \
+  --sla-breach-rate 0.15
+```
+
+### 5. Open dashboards and operational views
+
+| View | URL | What to check |
+|---|---|---|
+| Dashboard UI | http://localhost:18090 | Revenue, payments, support, order-to-cash, and data quality cards |
+| Dashboard API | http://localhost:18090/api/dashboard | Raw JSON snapshot and `dataQuality` report |
+| Grafana | http://localhost:13000 | Login `admin` / `change_me_grafana` from `.env.example`; open `OmniCare CDC Operations` |
+| Prometheus | http://localhost:19090 | Query CDC metrics and alert expressions |
+| Project metrics exporter | http://localhost:18091/metrics | Connector health, dashboard freshness, quality checks |
+| Transformer metrics | http://localhost:18092/metrics | Processed records, DLQ, Cassandra write latency |
+| Kafka consumer lag exporter | http://localhost:19308/metrics | Consumer lag for transformer and Connect groups |
+| Kafka Connect REST | http://localhost:18083/connectors | Registered Debezium connectors |
+| Kafka Connect Jolokia | http://localhost:18778/jolokia | Debezium JMX/source lag metrics |
+| Trino | http://localhost:18080 | SQL access to Cassandra catalog |
+
+Run the live quality gate any time:
+
+```bash
+python tools/quality_gate.py --dashboard-url http://localhost:18090
+```
+
+### 6. Run CI-style local validation
+
+```bash
+python tools/validate_config.py
+python tools/security_check.py
+python tools/validate_deployments.py
+python tools/validate_contracts.py
+PYTHONPATH=tools python -m unittest discover -s tools/tests
+(cd transformer && PYTHONPATH=src python -m unittest)
+(cd generator && PYTHONPATH=src python -m unittest)
+(cd dashboard && PYTHONPATH=app python -m unittest discover -s tests)
+PYTHONPATH=observability/exporter python -m unittest discover -s observability/exporter/tests
+```
+
+### 7. Stop or reset local containers
+
+Stop without deleting local container data:
+
+```bash
+podman compose --env-file .env -f docker-compose.yaml down
+```
+
+Reset local data for a clean test run:
+
+```bash
+podman compose --env-file .env -f docker-compose.yaml down -v
+```
+
 ## First Build Slice
 
 This initial V2 slice includes:
@@ -222,7 +346,7 @@ http://localhost:18091/metrics  # project metrics exporter
 http://localhost:19308/metrics  # Kafka consumer lag exporter
 http://localhost:18778/jolokia  # Kafka Connect Jolokia/JMX endpoint
 http://localhost:19090          # Prometheus
-http://localhost:13000          # Grafana, admin/admin
+http://localhost:13000          # Grafana, admin/change_me_grafana by default
 ```
 
 The exporter reads Kafka Connect status, Debezium JMX through Jolokia, and the dashboard API snapshot, then exposes connector health, task health, source lag, Debezium event throughput, dashboard API health, snapshot freshness, dashboard summary values, and data quality check results as Prometheus metrics. Kafka exporter adds consumer-group lag metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
