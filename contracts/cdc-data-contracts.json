@@ -1,0 +1,526 @@
+{
+  "version": 1,
+  "status": "production-schema-governance-contract",
+  "compatibilityMode": "BACKWARD_TRANSITIVE",
+  "eventEnvelope": {
+    "format": "Debezium JSON",
+    "requiredPayloadFields": [
+      "before",
+      "after",
+      "op",
+      "source",
+      "ts_ms"
+    ],
+    "requiredSourceFields": [
+      "db",
+      "table"
+    ],
+    "allowedOperations": [
+      "c",
+      "r",
+      "u",
+      "d"
+    ]
+  },
+  "sourceContracts": [
+    {
+      "sourceId": "postgres-orders-customers",
+      "ownerApplication": "orders",
+      "sourceEngine": "postgres",
+      "dataCollection": "public.customers",
+      "topicPrefixes": [
+        "cdc.local.omnicare.postgres",
+        "cdc.prod.omnicare.postgres"
+      ],
+      "keyFields": [
+        "customer_id"
+      ],
+      "requiredAfterFields": [
+        "customer_id",
+        "hospital_name",
+        "segment",
+        "city",
+        "country"
+      ],
+      "materialization": "dimension",
+      "targetTables": [
+        "dim_customer_by_id"
+      ],
+      "piiClassification": [
+        "business-confidential",
+        "location"
+      ]
+    },
+    {
+      "sourceId": "postgres-orders-orders",
+      "ownerApplication": "orders",
+      "sourceEngine": "postgres",
+      "dataCollection": "public.orders",
+      "topicPrefixes": [
+        "cdc.local.omnicare.postgres",
+        "cdc.prod.omnicare.postgres"
+      ],
+      "keyFields": [
+        "order_id"
+      ],
+      "requiredAfterFields": [
+        "order_id",
+        "customer_id",
+        "order_status",
+        "channel",
+        "ordered_at"
+      ],
+      "materialization": "captured-only",
+      "targetTables": [],
+      "piiClassification": [
+        "pseudonymous-customer-id"
+      ]
+    },
+    {
+      "sourceId": "postgres-orders-order-items",
+      "ownerApplication": "orders",
+      "sourceEngine": "postgres",
+      "dataCollection": "public.order_items",
+      "topicPrefixes": [
+        "cdc.local.omnicare.postgres",
+        "cdc.prod.omnicare.postgres"
+      ],
+      "keyFields": [
+        "order_item_id"
+      ],
+      "requiredAfterFields": [
+        "order_item_id",
+        "order_id",
+        "customer_id",
+        "product_id",
+        "quantity",
+        "unit_price_cents",
+        "ordered_at"
+      ],
+      "materialization": "fact",
+      "targetTables": [
+        "fact_order_line_by_day"
+      ],
+      "piiClassification": [
+        "pseudonymous-customer-id"
+      ]
+    },
+    {
+      "sourceId": "postgres-inventory-products-fallback",
+      "ownerApplication": "inventory",
+      "sourceEngine": "postgres",
+      "dataCollection": "public.products",
+      "topicPrefixes": [
+        "cdc.local.omnicare.postgres",
+        "cdc.prod.omnicare.postgres"
+      ],
+      "keyFields": [
+        "product_id"
+      ],
+      "requiredAfterFields": [
+        "product_id",
+        "sku",
+        "product_name",
+        "product_category"
+      ],
+      "materialization": "dimension",
+      "targetTables": [
+        "dim_product_by_id"
+      ],
+      "piiClassification": [
+        "none"
+      ]
+    },
+    {
+      "sourceId": "postgres-inventory-stock-movements-fallback",
+      "ownerApplication": "inventory",
+      "sourceEngine": "postgres",
+      "dataCollection": "public.stock_movements",
+      "topicPrefixes": [
+        "cdc.local.omnicare.postgres",
+        "cdc.prod.omnicare.postgres"
+      ],
+      "keyFields": [
+        "movement_id"
+      ],
+      "requiredAfterFields": [
+        "movement_id",
+        "product_id",
+        "warehouse_id",
+        "movement_type",
+        "quantity",
+        "movement_ts"
+      ],
+      "materialization": "fact",
+      "targetTables": [
+        "fact_inventory_movement_by_product"
+      ],
+      "piiClassification": [
+        "none"
+      ]
+    },
+    {
+      "sourceId": "mysql-billing-invoices",
+      "ownerApplication": "billing",
+      "sourceEngine": "mysql",
+      "dataCollection": "billing.invoices",
+      "topicPrefixes": [
+        "cdc.local.omnicare.mysql",
+        "cdc.prod.omnicare.mysql"
+      ],
+      "keyFields": [
+        "invoice_id"
+      ],
+      "requiredAfterFields": [
+        "invoice_id",
+        "order_id",
+        "customer_id",
+        "invoice_status",
+        "amount_cents",
+        "issued_at"
+      ],
+      "materialization": "captured-only",
+      "targetTables": [],
+      "piiClassification": [
+        "pseudonymous-customer-id",
+        "payment-metadata"
+      ]
+    },
+    {
+      "sourceId": "mysql-billing-payments",
+      "ownerApplication": "billing",
+      "sourceEngine": "mysql",
+      "dataCollection": "billing.payments",
+      "topicPrefixes": [
+        "cdc.local.omnicare.mysql",
+        "cdc.prod.omnicare.mysql"
+      ],
+      "keyFields": [
+        "payment_id"
+      ],
+      "requiredAfterFields": [
+        "payment_id",
+        "invoice_id",
+        "order_id",
+        "customer_id",
+        "payment_status",
+        "payment_method",
+        "amount_cents"
+      ],
+      "materialization": "fact",
+      "targetTables": [
+        "fact_payment_by_day"
+      ],
+      "piiClassification": [
+        "pseudonymous-customer-id",
+        "payment-metadata"
+      ]
+    },
+    {
+      "sourceId": "mysql-billing-refunds",
+      "ownerApplication": "billing",
+      "sourceEngine": "mysql",
+      "dataCollection": "billing.refunds",
+      "topicPrefixes": [
+        "cdc.local.omnicare.mysql",
+        "cdc.prod.omnicare.mysql"
+      ],
+      "keyFields": [
+        "refund_id"
+      ],
+      "requiredAfterFields": [
+        "refund_id",
+        "payment_id",
+        "refund_reason",
+        "amount_cents"
+      ],
+      "materialization": "fact",
+      "targetTables": [
+        "fact_refund_by_day"
+      ],
+      "piiClassification": [
+        "payment-metadata"
+      ]
+    },
+    {
+      "sourceId": "mongo-engagement-customer-events",
+      "ownerApplication": "engagement",
+      "sourceEngine": "mongo",
+      "dataCollection": "engagement.customer_events",
+      "topicPrefixes": [
+        "cdc.local.omnicare.mongo",
+        "cdc.prod.omnicare.mongo"
+      ],
+      "keyFields": [
+        "event_id"
+      ],
+      "requiredAfterFields": [
+        "event_id",
+        "customer_id",
+        "event_type",
+        "event_ts"
+      ],
+      "materialization": "captured-only",
+      "targetTables": [],
+      "piiClassification": [
+        "pseudonymous-customer-id",
+        "engagement-metadata"
+      ]
+    },
+    {
+      "sourceId": "mongo-engagement-support-tickets",
+      "ownerApplication": "engagement",
+      "sourceEngine": "mongo",
+      "dataCollection": "engagement.support_tickets",
+      "topicPrefixes": [
+        "cdc.local.omnicare.mongo",
+        "cdc.prod.omnicare.mongo"
+      ],
+      "keyFields": [
+        "ticket_id"
+      ],
+      "requiredAfterFields": [
+        "ticket_id",
+        "customer_id",
+        "priority",
+        "status",
+        "opened_at"
+      ],
+      "materialization": "fact",
+      "targetTables": [
+        "fact_support_case_by_customer"
+      ],
+      "piiClassification": [
+        "pseudonymous-customer-id",
+        "support-metadata"
+      ]
+    },
+    {
+      "sourceId": "oracle-inventory-products",
+      "ownerApplication": "inventory",
+      "sourceEngine": "oracle",
+      "dataCollection": "ERP_APP.PRODUCTS",
+      "topicPrefixes": [
+        "cdc.local.omnicare.oracle",
+        "cdc.prod.omnicare.oracle"
+      ],
+      "keyFields": [
+        "product_id"
+      ],
+      "requiredAfterFields": [
+        "product_id",
+        "sku",
+        "product_name",
+        "product_category"
+      ],
+      "materialization": "dimension",
+      "targetTables": [
+        "dim_product_by_id"
+      ],
+      "piiClassification": [
+        "none"
+      ]
+    },
+    {
+      "sourceId": "oracle-inventory-stock-movements",
+      "ownerApplication": "inventory",
+      "sourceEngine": "oracle",
+      "dataCollection": "ERP_APP.STOCK_MOVEMENTS",
+      "topicPrefixes": [
+        "cdc.local.omnicare.oracle",
+        "cdc.prod.omnicare.oracle"
+      ],
+      "keyFields": [
+        "movement_id"
+      ],
+      "requiredAfterFields": [
+        "movement_id",
+        "product_id",
+        "warehouse_id",
+        "movement_type",
+        "quantity",
+        "movement_ts"
+      ],
+      "materialization": "fact",
+      "targetTables": [
+        "fact_inventory_movement_by_product"
+      ],
+      "piiClassification": [
+        "none"
+      ]
+    },
+    {
+      "sourceId": "oracle-inventory-suppliers",
+      "ownerApplication": "inventory",
+      "sourceEngine": "oracle",
+      "dataCollection": "ERP_APP.SUPPLIERS",
+      "topicPrefixes": [
+        "cdc.local.omnicare.oracle",
+        "cdc.prod.omnicare.oracle"
+      ],
+      "keyFields": [
+        "supplier_id"
+      ],
+      "requiredAfterFields": [
+        "supplier_id",
+        "supplier_name",
+        "country"
+      ],
+      "materialization": "captured-only",
+      "targetTables": [],
+      "piiClassification": [
+        "business-confidential",
+        "location"
+      ]
+    }
+  ],
+  "targetContracts": [
+    {
+      "table": "dim_customer_by_id",
+      "tableType": "dimension",
+      "primaryKey": [
+        "customer_id"
+      ],
+      "requiredColumns": [
+        "customer_id",
+        "hospital_name",
+        "segment",
+        "city",
+        "country",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "deleted"
+      ]
+    },
+    {
+      "table": "dim_product_by_id",
+      "tableType": "dimension",
+      "primaryKey": [
+        "product_id"
+      ],
+      "requiredColumns": [
+        "product_id",
+        "sku",
+        "product_name",
+        "product_category",
+        "supplier_id",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "deleted"
+      ]
+    },
+    {
+      "table": "fact_order_line_by_day",
+      "tableType": "fact",
+      "primaryKey": [
+        "order_day",
+        "fact_id"
+      ],
+      "requiredColumns": [
+        "order_day",
+        "fact_id",
+        "order_id",
+        "order_item_id",
+        "customer_id",
+        "product_id",
+        "quantity",
+        "unit_price_cents",
+        "gross_amount_cents",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "op"
+      ]
+    },
+    {
+      "table": "fact_payment_by_day",
+      "tableType": "fact",
+      "primaryKey": [
+        "payment_day",
+        "fact_id"
+      ],
+      "requiredColumns": [
+        "payment_day",
+        "fact_id",
+        "payment_id",
+        "invoice_id",
+        "order_id",
+        "customer_id",
+        "payment_status",
+        "payment_method",
+        "amount_cents",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "op"
+      ]
+    },
+    {
+      "table": "fact_refund_by_day",
+      "tableType": "fact",
+      "primaryKey": [
+        "refund_day",
+        "fact_id"
+      ],
+      "requiredColumns": [
+        "refund_day",
+        "fact_id",
+        "refund_id",
+        "payment_id",
+        "refund_reason",
+        "amount_cents",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "op"
+      ]
+    },
+    {
+      "table": "fact_inventory_movement_by_product",
+      "tableType": "fact",
+      "primaryKey": [
+        "product_id",
+        "movement_ts",
+        "fact_id"
+      ],
+      "requiredColumns": [
+        "product_id",
+        "movement_ts",
+        "fact_id",
+        "movement_id",
+        "warehouse_id",
+        "movement_type",
+        "quantity",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "op"
+      ]
+    },
+    {
+      "table": "fact_support_case_by_customer",
+      "tableType": "fact",
+      "primaryKey": [
+        "customer_id",
+        "opened_day",
+        "fact_id"
+      ],
+      "requiredColumns": [
+        "customer_id",
+        "opened_day",
+        "fact_id",
+        "ticket_id",
+        "priority",
+        "status",
+        "sla_due_at",
+        "closed_at",
+        "source_topic",
+        "source_position",
+        "event_ts",
+        "op"
+      ]
+    }
+  ]
+}

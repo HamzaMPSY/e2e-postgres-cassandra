@@ -118,7 +118,10 @@ Validate connector templates and required environment variables without starting
 ```bash
 python tools/validate_config.py
 python tools/security_check.py
+python tools/validate_contracts.py
 ```
+
+CDC source and Cassandra serving-table contracts live in `contracts/cdc-data-contracts.json`. The governance rules and schema-change checklist are documented in `docs/v2/SCHEMA_GOVERNANCE.md`.
 
 ## Generate Demo Data
 

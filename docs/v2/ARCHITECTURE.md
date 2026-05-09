@@ -147,6 +147,20 @@ Trino exposes Cassandra tables to Superset. This gives an interview-friendly sep
 - Trino gives SQL access and joins for BI.
 - Superset provides dashboards.
 
+## Schema Governance
+
+The CDC contract is committed as `contracts/cdc-data-contracts.json` and validated by `tools/validate_contracts.py`.
+
+It ties together:
+
+- Connector include lists.
+- Debezium topic naming.
+- Transformer mapper coverage.
+- Cassandra serving-table columns and keys.
+- Captured-only streams that are retained but not yet materialized.
+
+Schema-change rules are documented in `docs/v2/SCHEMA_GOVERNANCE.md`.
+
 ## Production Deployment Variants
 
 ### AWS
