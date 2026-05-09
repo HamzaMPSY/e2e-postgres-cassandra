@@ -1,84 +1,139 @@
-# e2e-postgres-Cassandra
+# OmniCare CDC
 
-# Change data capture on Postgres using Debezium
+Production-grade multi-source CDC demo:
 
-## set up the Postgres database
-
-Run the Following commands in your postgres database console to enable replication on the tables that you wanna capture the changes
-
-```sql
-ALTER SYSTEM SET wal_level = 'logical'
-
-CREATE TABLE if not exists his_drugs(
-    product_id uuid PRIMARY KEY,
-    description VARCHAR (255) NOT NULL,
-    dci_code VARCHAR (255) NOT NULL,
-    dci_description VARCHAR (255) NOT NULL);
-
-
-CREATE TABLE if not exists his_devices(
-   product_id uuid PRIMARY KEY,
-   description VARCHAR (255) NOT NULL
-);
-
-
-CREATE TABLE if not exists his_medicals(
-   product_id uuid PRIMARY KEY,
-   description VARCHAR (255) NOT NULL
-);
-
-
-CREATE TABLE if not exists his_blabla(
-   product_id uuid PRIMARY KEY,
-   description VARCHAR (255) NOT NULL
-);
-
-ALTER TABLE public.his_devices REPLICA IDENTITY FULL;
-ALTER TABLE public.his_drugs REPLICA IDENTITY FULL;
-ALTER TABLE public.his_medicals REPLICA IDENTITY FULL;
-ALTER TABLE public.his_blabla REPLICA IDENTITY FULL;
-
+```text
+PostgreSQL + MySQL + MongoDB + optional Oracle
+  -> Debezium Kafka Connect
+  -> Kafka raw CDC topics
+  -> Python transformer
+  -> Cassandra dashboard star tables
+  -> Trino
+  -> Superset dashboards
 ```
 
-Make sure you restart the whole project, kill processes using CRTL-C and re-run 'sudo docker compose up'
+## Why this exists
 
-## set up debezium connector to listen to the postgres database
+The original project demonstrated Postgres to Cassandra CDC. This version turns that into an enterprise-style demo:
 
-```console
-$ curl -i -X POST -H "Accept:application/json" -H "Content-type:application/json" 127.0.0.1:8083/connectors/ --data "@debezium/debezium-connector.json"
+- Multiple applications.
+- Multiple database engines.
+- CDC connector templates.
+- Cassandra serving schema.
+- Trino SQL access.
+- Tested transformation code.
+- Production backlog and runbooks.
+
+## Quick Start
+
+```bash
+cp .env.example .env
+podman compose --env-file .env -f docker-compose.yaml up -d
 ```
 
-## set up the Cassandra database
+The local Compose file is intentionally memory-tuned for a laptop Podman machine. It caps JVM-heavy services such as Kafka, Kafka Connect, Schema Registry, Trino, and Cassandra. This is a development profile, not a production sizing model.
 
-Run the following command to enter cassandra container and to be able to run sql commands
+The MySQL container is pinned to `mysql:8.0` because Debezium 2.7 uses MySQL binlog metadata commands that are not compatible with the `mysql:8.4` image in this local stack. Production deployments should pin and certify every source database and connector version as a pair.
 
-```console
-$ sudo docker exec -it cassandra bash -c "cqlsh"
+Oracle is optional:
+
+```bash
+podman compose --env-file .env -f docker-compose.yaml --profile oracle up -d
 ```
 
-to set up the cassandra database to ingest data
-1- create the keyspace that would hold the tables
+## First Build Slice
 
-```sql
-CREATE KEYSPACE db_amo
-WITH REPLICATION = {
-   'class' : 'SimpleStrategy',
-   'replication_factor' : 1
-  };
-use db_users;
+This initial V2 slice includes:
+
+- Architecture docs.
+- Ticket backlog.
+- Local Compose skeleton.
+- Source DB init scripts.
+- Cassandra schema.
+- Debezium connector templates.
+- Trino Cassandra catalog.
+- Python transformation package with unit tests.
+
+## Test Transformer
+
+```bash
+cd transformer
+PYTHONPATH=src python -m unittest
 ```
 
-2- create the regions table
+## Run Transformer
 
-```sql
-CREATE TABLE his_acts (
-   product_id text,
-   description text,
-   dci_code text,
-   dci_description text,
-   ts_ms TIMESTAMP,
-   op text,
-   PRIMARY KEY (product_id, ts_ms)
-);
+Install the transformer in a virtual environment:
 
+```bash
+cd transformer
+python -m pip install -e .
+omnicare-cdc-transformer
 ```
+
+The service disables Kafka auto-commit. It writes transformed rows to Cassandra first, then commits the source Kafka offset. If a record fails parsing or writing, it publishes a DLQ record and then commits the source offset to avoid a poison-message loop.
+
+For local smoke tests, run a finite batch against only the active local topics:
+
+```bash
+CDC_SOURCE_TOPICS=cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mongo.engagement.support_tickets \
+  omnicare-cdc-transformer --max-messages 100 --idle-timeout-seconds 10
+```
+
+To replay Kafka into an empty Cassandra keyspace, use a new `KAFKA_GROUP_ID`. The target writes are idempotent through deterministic fact IDs and Cassandra upserts.
+
+## Register Local Connectors
+
+Local connector JSON files contain environment placeholders. Render and register them with:
+
+```bash
+ENV_FILE=.env scripts/register-connectors.sh
+```
+
+In production, prefer Kafka Connect config providers or a platform secrets integration instead of rendering secrets into JSON files.
+
+## Generate Demo Data
+
+Install and run the generator:
+
+```bash
+cd generator
+python -m pip install -e .
+omnicare-demo-generator --iterations 10
+```
+
+The generator writes to PostgreSQL, MySQL, and MongoDB using driver parameter binding / document APIs. Oracle generator support is intentionally deferred because the local Oracle profile is optional.
+
+Host-side MongoDB writes use `directConnection=true` because the local replica set advertises the internal Compose hostname to Debezium. The Debezium Mongo connector still uses the internal replica-set address from inside the Compose network.
+
+## Local Migrations
+
+Fresh containers apply `postgres/init.sql` and `mysql/init.sql`. If an older local container already exists, apply the migration SQL under `migrations/local` or recreate that source container. The migrations capture schema compatibility fixes found during E2E testing:
+
+- `postgres/001_order_item_context.sql`: denormalized order context needed by order-line facts.
+- `mysql/001_payment_context.sql`: payment context and widened prefixed IDs.
+- `mysql/002_debezium_privileges.sql`: local Debezium snapshot/binlog privileges.
+
+## Latest Verified Smoke Test
+
+Validated locally on 2026-05-08:
+
+- PostgreSQL, MySQL, and MongoDB Debezium connectors were `RUNNING`.
+- Generator created coherent cross-database order, payment, and support flows.
+- Transformer replayed `47` CDC messages into a fresh Cassandra keyspace.
+- Cassandra contained `14` order-line facts, `7` payment facts, and `12` support-case facts.
+- Trino queried Cassandra successfully; revenue-by-day returned `2026-05-08`, `14` order lines, and `6079.8` gross revenue.
+
+## Dashboard UI
+
+The lightweight dashboard is served from the Compose stack:
+
+```text
+http://localhost:18090
+```
+
+It queries Trino over HTTP, then renders revenue, payment health, support risk, and order-to-cash cards from Cassandra serving tables.
+
+## Production Rule
+
+This demo assumes at-least-once CDC delivery. Correctness is enforced through idempotent target writes and deterministic fact ids.

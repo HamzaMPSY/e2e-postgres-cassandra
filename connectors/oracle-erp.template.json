@@ -1,0 +1,23 @@
+{
+  "name": "oracle-erp-local",
+  "config": {
+    "connector.class": "io.debezium.connector.oracle.OracleConnector",
+    "database.hostname": "oracle-erp",
+    "database.port": "1521",
+    "database.user": "ERP_APP",
+    "database.password": "${ORACLE_PASSWORD}",
+    "database.dbname": "FREE",
+    "database.pdb.name": "FREEPDB1",
+    "topic.prefix": "cdc.local.omnicare.oracle",
+    "database.connection.adapter": "logminer",
+    "schema.include.list": "ERP_APP",
+    "table.include.list": "ERP_APP.PRODUCTS,ERP_APP.SUPPLIERS,ERP_APP.STOCK_MOVEMENTS",
+    "snapshot.mode": "initial",
+    "include.schema.changes": "true",
+    "heartbeat.interval.ms": "10000",
+    "decimal.handling.mode": "string",
+    "errors.tolerance": "none",
+    "errors.log.enable": "true"
+  }
+}
+

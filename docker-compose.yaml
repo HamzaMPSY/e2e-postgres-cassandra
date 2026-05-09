@@ -1,170 +1,204 @@
 services:
-  postgres:
-    container_name: postgres_db
-    image: postgres:14-alpine
-    restart: always
-    ports:
-      - 5433:5432
-    volumes:
-      - ~/apps/postgres:/var/lib/postgresql/data:rw
-    environment:
-      - POSTGRES_PASSWORD=nidal
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
-
-  producer:
-    build:
-      context: ./data-generator
-      dockerfile: Dockerfile
-    container_name: producer
-    depends_on:
-      - postgres
-    volumes:
-      - ./data-generator:/app # Mount the current directory into the container
-    command: python generate_data.py # Command to run the script
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:6.2.0
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
   kafka:
-    image: confluentinc/cp-kafka:6.2.0
-    container_name: kafka
-    depends_on:
-      - zookeeper
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: omnicare-kafka
     ports:
-      - "9092:9092"
-      - "9101:9101"
-      - "29092:29092"
+      - "19092:19092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ADVERTISED_HOST_NAME: kafka:9092
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://0.0.0.0:19092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      CONNECT_CONFLUENT_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    ports:
-      - "8080:8080"
-    restart: always
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.7.1
+    container_name: omnicare-schema-registry
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    ports:
+      - "18081:8081"
     environment:
-      - KAFKA_CLUSTERS_0_NAME=local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx384m"
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
 
-  debezium:
-    container_name: debezium
-    image: quay.io/debezium/connect:latest
+  connect:
+    image: quay.io/debezium/connect:2.7
+    container_name: omnicare-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+    ports:
+      - "18083:8083"
     environment:
-      BOOTSTRAP_SERVERS: kafka:29092
-      GROUP_ID: 1
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: omnicare-connect
       CONFIG_STORAGE_TOPIC: connect_configs
       OFFSET_STORAGE_TOPIC: connect_offsets
       STATUS_STORAGE_TOPIC: connect_statuses
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-    depends_on: [kafka]
-    ports:
-      - "8083:8083"
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
 
-  schema-registry:
-    container_name: schema_registry
-    image: confluentinc/cp-schema-registry:5.5.3
-    environment:
-      - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
-      - SCHEMA_REGISTRY_HOST_NAME=schema-registry
-      - SCHEMA_REGISTRY_LISTENERS=http://schema-registry:8081,http://localhost:8081
+  postgres-orders:
+    image: postgres:16-alpine
+    container_name: omnicare-postgres-orders
     ports:
-      - "8081:8081"
-    depends_on: [zookeeper, kafka]
-
-  debezium-ui:
-    image: quay.io/debezium/debezium-ui:latest
-    ports:
-      - 8090:8080
-    links:
-      - debezium
+      - "15432:5432"
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10"]
     environment:
-      - KAFKA_CONNECT_URIS=http://debezium:8083
-
-  spark-master:
-    image: bde2020/spark-master:3.3.0-hadoop3.3
-    container_name: spark-master
-    ports:
-      - "8070:8080"
-      - "7077:7077"
-    environment:
-      - INIT_DAEMON_STEP=setup_spark
-      - SPARK_CLASSPATH=/spark/custom-jars/*
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./spark/jars:/spark/custom-jars
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
 
-  spark-worker-1:
-    image: bde2020/spark-worker:3.3.0-hadoop3.3
-    container_name: spark-worker-1
-    depends_on:
-      - spark-master
+  mysql-billing:
+    image: mysql:8.0
+    container_name: omnicare-mysql-billing
     ports:
-      - "8071:8081"
-    environment:
-      - "SPARK_MASTER=spark://spark-master:7077"
-      - SPARK_CLASSPATH=/spark/custom-jars/*
-    volumes:
-      - ./spark/jars:/spark/custom-jars
-
-  jupyter-notebook:
-    depends_on:
-      - spark-master
-    container_name: jupyter-notebook
-    user: root
-    image: jupyter/pyspark-notebook:spark-3.3.0
-    expose:
-      - "4040"
-      - "8888"
-    ports:
-      - "4040:4040"
-      - "8888:8888"
-    volumes:
-      - ./notebooks:/opt/notebooks:rw
-      - ./events:/tmp/spark-events:rw
-    environment:
-      - NB_USER=jupyternb
-      - NB_UID=1000
-      - NB_GID=100
-      - CHOWN_HOME=yes
+      - "13306:3306"
     command:
-      - jupyter
-      - notebook
-      - --ip='*'
-      - --port=8888
-      - --no-browser
-      - --notebook-dir=/opt/notebooks
-      - --allow-root
-      - --NotebookApp.token=''
+      - "--server-id=223344"
+      - "--log-bin=mysql-bin"
+      - "--binlog-format=ROW"
+      - "--binlog-row-image=FULL"
+      - "--performance-schema=OFF"
+      - "--innodb-buffer-pool-size=128M"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+
+  mongo-engagement:
+    image: mongo:7
+    container_name: omnicare-mongo-engagement
+    hostname: mongo-engagement
+    ports:
+      - "27017:27017"
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.25"]
+
+  mongo-setup:
+    image: mongo:7
+    container_name: omnicare-mongo-setup
+    depends_on:
+      - mongo-engagement
+    command:
+      - bash
+      - -lc
+      - |
+        for attempt in {1..30}; do
+          mongosh --host mongo-engagement:27017 --eval '
+            try {
+              rs.status();
+            } catch (error) {
+              rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongo-engagement:27017"}]});
+            }
+          ' && break
+          sleep 2
+        done
+        for attempt in {1..30}; do
+          mongosh "mongodb://mongo-engagement:27017/engagement?replicaSet=rs0" --eval '
+            db.createCollection("support_tickets");
+            db.support_tickets.createIndex({ ticket_id: 1 }, { unique: true });
+            db.support_tickets.createIndex({ customer_id: 1, opened_at: -1 });
+            db.createCollection("customer_events");
+            db.customer_events.createIndex({ event_id: 1 }, { unique: true });
+            db.customer_events.createIndex({ customer_id: 1, event_ts: -1 });
+          ' && exit 0
+          sleep 2
+        done
+        exit 1
+
+  oracle-erp:
+    image: gvenzl/oracle-free:23-slim
+    container_name: omnicare-oracle-erp
+    profiles: ["oracle"]
+    ports:
+      - "11521:1521"
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
+      APP_USER: ERP_APP
+      APP_USER_PASSWORD: ${ORACLE_PASSWORD}
+    volumes:
+      - ./oracle/init.sql:/container-entrypoint-initdb.d/001-init.sql:ro
 
   cassandra:
-    image: cassandra:latest
-    hostname: cassandra
-    container_name: cassandra
+    image: cassandra:5
+    container_name: omnicare-cassandra
     ports:
       - "9042:9042"
-    volumes:
-      - ~/apps/cassandra:/var/lib/cassandra
     environment:
-      - CASSANDRA_CLUSTER_NAME=cassandracluster
+      CASSANDRA_CLUSTER_NAME: ${CASSANDRA_CLUSTER_NAME}
+      CASSANDRA_DC: ${CASSANDRA_DC}
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 128M
+      JVM_EXTRA_OPTS: "-Dcassandra.skip_wait_for_gossip_to_settle=0"
+
+  cassandra-setup:
+    image: cassandra:5
+    container_name: omnicare-cassandra-setup
+    depends_on:
+      - cassandra
+    volumes:
+      - ./cassandra/schema.cql:/schema.cql:ro
+    command:
+      - bash
+      - -lc
+      - |
+        for attempt in {1..60}; do
+          /opt/cassandra/bin/cqlsh cassandra 9042 -f /schema.cql && exit 0
+          sleep 2
+        done
+        exit 1
+
+  trino:
+    image: trinodb/trino:462
+    container_name: omnicare-trino
+    depends_on:
+      - cassandra-setup
+    ports:
+      - "18080:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx768m"
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog:ro
+
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: omnicare-dashboard
+    depends_on:
+      - trino
+    ports:
+      - "18090:8080"
+    environment:
+      TRINO_URL: http://trino:8080
+      DASHBOARD_PORT: 8080

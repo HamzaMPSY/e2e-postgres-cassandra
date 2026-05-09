@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OmniCare Operations</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to dashboard</a>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">CDC command center</p>
+        <h1>OmniCare Operations</h1>
+      </div>
+      <div class="status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Connecting</span>
+      </div>
+    </header>
+
+    <main id="main" class="shell">
+      <section class="hero-panel" aria-label="Operational summary">
+        <div>
+          <p class="eyebrow">Multi-source CDC</p>
+          <h2>Orders, payments, and support in one serving layer.</h2>
+        </div>
+        <button id="refreshButton" class="refresh-button" type="button" aria-label="Refresh dashboard">
+          Refresh
+        </button>
+      </section>
+
+      <section class="metrics" aria-label="Key metrics">
+        <article class="metric">
+          <span>Gross revenue</span>
+          <strong id="grossRevenue">$0</strong>
+        </article>
+        <article class="metric">
+          <span>Order lines</span>
+          <strong id="orderLines">0</strong>
+        </article>
+        <article class="metric">
+          <span>Payment volume</span>
+          <strong id="paymentAmount">$0</strong>
+        </article>
+        <article class="metric">
+          <span>Support cases</span>
+          <strong id="supportCases">0</strong>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel revenue-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Revenue</p>
+              <h3>Revenue by day</h3>
+            </div>
+            <span id="revenueTotal" class="pill">$0</span>
+          </div>
+          <div id="revenueChart" class="bar-chart" aria-label="Revenue by day chart"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Payments</p>
+              <h3>Status mix</h3>
+            </div>
+            <span id="paymentCount" class="pill">0 payments</span>
+          </div>
+          <div id="paymentList" class="status-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Support</p>
+              <h3>SLA risk</h3>
+            </div>
+            <span id="supportCount" class="pill">0 cases</span>
+          </div>
+          <div id="supportList" class="status-list"></div>
+        </article>
+
+        <article class="panel wide">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Order to cash</p>
+              <h3>Open amount by order</h3>
+            </div>
+            <span id="openAmount" class="pill">$0 open</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Ordered</th>
+                  <th>Captured</th>
+                  <th>Open</th>
+                </tr>
+              </thead>
+              <tbody id="cashTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

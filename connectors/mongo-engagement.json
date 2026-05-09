@@ -1,0 +1,15 @@
+{
+  "name": "mongo-engagement-local",
+  "config": {
+    "connector.class": "io.debezium.connector.mongodb.MongoDbConnector",
+    "mongodb.connection.string": "mongodb://mongo-engagement:27017/?replicaSet=rs0",
+    "topic.prefix": "cdc.local.omnicare.mongo",
+    "database.include.list": "engagement",
+    "collection.include.list": "engagement.support_tickets,engagement.customer_events",
+    "snapshot.mode": "initial",
+    "capture.mode": "change_streams_update_full",
+    "heartbeat.interval.ms": "10000",
+    "errors.tolerance": "none",
+    "errors.log.enable": "true"
+  }
+}

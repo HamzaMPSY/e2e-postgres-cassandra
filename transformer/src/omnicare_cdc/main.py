@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import logging
+import argparse
+
+from .cassandra_writer import connect_cassandra
+from .config import AppConfig
+from .dlq import connect_dlq_producer
+from .service import TransformerService
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--max-messages",
+        type=int,
+        default=0,
+        help="Process at most this many Kafka messages, then exit. 0 means run forever.",
+    )
+    parser.add_argument(
+        "--idle-timeout-seconds",
+        type=float,
+        default=10.0,
+        help="With --max-messages, exit after this many seconds without a message.",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    config = AppConfig.from_env()
+    consumer = _connect_consumer(config)
+    writer = connect_cassandra(
+        contact_points=config.cassandra_contact_points,
+        keyspace=config.cassandra_keyspace,
+        local_dc=config.cassandra_local_dc,
+        protocol_version=config.cassandra_protocol_version,
+    )
+    dlq = connect_dlq_producer(
+        bootstrap_servers=config.kafka_bootstrap_servers,
+        topic=config.dlq_topic,
+    )
+    consumer.subscribe(list(config.source_topics))
+    service = TransformerService(consumer=consumer, writer=writer, dlq=dlq)
+    if args.max_messages > 0:
+        processed = service.run_until(
+            max_messages=args.max_messages,
+            idle_timeout_seconds=args.idle_timeout_seconds,
+            poll_timeout_seconds=config.poll_timeout_seconds,
+        )
+        logging.info("Transformer smoke run completed processed_messages=%s", processed)
+        return
+
+    service.run_forever(poll_timeout_seconds=config.poll_timeout_seconds)
+
+
+def _connect_consumer(config: AppConfig):
+    try:
+        from confluent_kafka import Consumer
+    except ImportError as exc:
+        raise RuntimeError("confluent-kafka is required to run the transformer") from exc
+
+    return Consumer(
+        {
+            "bootstrap.servers": config.kafka_bootstrap_servers,
+            "group.id": config.kafka_group_id,
+            "enable.auto.commit": False,
+            "auto.offset.reset": "earliest",
+            "isolation.level": "read_committed",
+        }
+    )
+
+
+if __name__ == "__main__":
+    main()

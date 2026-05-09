@@ -1,0 +1,15 @@
+[project]
+name = "omnicare-cdc-transformer"
+version = "0.1.0"
+description = "Transforms multi-source Debezium CDC events into OmniCare Cassandra dashboard rows."
+requires-python = ">=3.11"
+dependencies = [
+  "cassandra-driver>=3.29,<4",
+  "confluent-kafka>=2.6,<3",
+]
+
+[project.scripts]
+omnicare-cdc-transformer = "omnicare_cdc.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
