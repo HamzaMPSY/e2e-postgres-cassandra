@@ -54,6 +54,8 @@ CI runs the harness in a container-free dry-run smoke profile on every push and 
 
 The dashboard response includes data quality checks for query success, row counts, event freshness, and order-to-payment reconciliation. The live demo harness fails if `python tools/quality_gate.py` rejects the dashboard snapshot; details are in `docs/v2/DATA_QUALITY.md`.
 
+The anomaly harness injects bad source data and proves the pipeline rejects or quarantines it before Cassandra dashboards are trusted. Details are in `docs/v2/ANOMALY_TESTING.md`.
+
 ## Local Test Runbook
 
 Use these steps when you want to test the full local CDC flow and watch data arrive in the UI.
@@ -96,7 +98,37 @@ scripts/demo-e2e.sh \
 
 This starts the stack if needed, registers connectors, generates data, runs a bounded transformer pass, verifies Cassandra row counts, checks the dashboard API, runs the data quality gate, and writes `artifacts/demo-report.json`.
 
-### 4. Run long-running data generation
+### 4. Run anomaly hardening test
+
+Use this after a normal smoke test when you want to challenge the pipeline with negative values, nulls, malformed dates, and impossible payment amounts:
+
+```bash
+scripts/anomaly-e2e.sh \
+  --skip-start \
+  --skip-register-connectors \
+  --cleanup \
+  --transformer-max-messages 500 \
+  --report-file artifacts/anomaly-report.json
+```
+
+Expected behavior:
+
+- PostgreSQL rejects invalid order rows at the source.
+- MySQL rejects `NULL` payment amounts at the source.
+- MySQL accepts semantically bad payment rows, then the transformer quarantines negative and impossible captured amounts.
+- MongoDB accepts malformed support tickets, then the transformer quarantines invalid support facts.
+- Cassandra dashboard tables do not receive the rejected support facts or bad captured payment facts.
+- The script writes `artifacts/anomaly-report.json` and runs the same dashboard quality gate used by the normal demo.
+
+`--cleanup` removes prior anomaly rows from the mutable source databases and prior anomaly facts from Cassandra so repeated local runs do not fail because of old manual-test pollution.
+
+For a container-free command preview:
+
+```bash
+scripts/anomaly-e2e.sh --dry-run --env-file .env.example
+```
+
+### 5. Run long-running data generation
 
 Install the generator once:
 
@@ -129,7 +161,7 @@ omnicare-demo-generator \
   --sla-breach-rate 0.15
 ```
 
-### 5. Open dashboards and operational views
+### 6. Open dashboards and operational views
 
 | View | URL | What to check |
 |---|---|---|
@@ -150,7 +182,7 @@ Run the live quality gate any time:
 python tools/quality_gate.py --dashboard-url http://localhost:18090
 ```
 
-### 6. Run CI-style local validation
+### 7. Run CI-style local validation
 
 ```bash
 python tools/validate_config.py
@@ -164,7 +196,7 @@ PYTHONPATH=tools python -m unittest discover -s tools/tests
 PYTHONPATH=observability/exporter python -m unittest discover -s observability/exporter/tests
 ```
 
-### 7. Stop or reset local containers
+### 8. Stop or reset local containers
 
 Stop without deleting local container data:
 

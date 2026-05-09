@@ -56,6 +56,18 @@ The command exits non-zero on failed checks, stale snapshots, missing `dataQuali
 checks.dataQuality
 ```
 
+## Anomaly Harness Gate
+
+`scripts/anomaly-e2e.sh` challenges the pipeline with bad source rows and accepted semantic anomalies before it runs the dashboard quality gate. It verifies that source constraints reject impossible rows, transformer validation quarantines malformed facts, and business guardrails keep bad captured payment facts out of Cassandra.
+
+Default report path:
+
+```text
+artifacts/anomaly-report.json
+```
+
+See `docs/v2/ANOMALY_TESTING.md` for the scenario list and pass criteria.
+
 ## Observability
 
 The metrics exporter emits:

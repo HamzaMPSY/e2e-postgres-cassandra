@@ -55,6 +55,8 @@ CI covers the dry-run path and bash syntax. Live container execution is exposed 
 
 See `docs/v2/CI_E2E_SMOKE.md` for the pull-request and live runner profiles.
 
+For bad-data hardening after the happy-path demo passes, use `scripts/anomaly-e2e.sh`. The scenario list and pass criteria are documented in `docs/v2/ANOMALY_TESTING.md`.
+
 ## Verification Gates
 
 The harness fails if:
