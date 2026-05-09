@@ -1,0 +1,56 @@
+groups:
+  - name: omnicare-cdc
+    rules:
+      - alert: OmniCareKafkaConnectDown
+        expr: omnicare_kafka_connect_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kafka Connect REST API is unavailable
+          description: The metrics exporter cannot reach Kafka Connect at the configured CONNECT_URL.
+
+      - alert: OmniCareConnectorNotRunning
+        expr: max by (connector) (omnicare_connector_running) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Debezium connector is not running
+          description: Connector {{ $labels.connector }} is not reporting RUNNING.
+
+      - alert: OmniCareConnectorTaskNotRunning
+        expr: max by (connector, task) (omnicare_connector_task_running) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Debezium connector task is not running
+          description: Connector {{ $labels.connector }} task {{ $labels.task }} is not reporting RUNNING.
+
+      - alert: OmniCareDashboardApiDown
+        expr: omnicare_dashboard_api_up == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Dashboard API is unavailable
+          description: The metrics exporter cannot read the dashboard API snapshot.
+
+      - alert: OmniCareDashboardSnapshotStale
+        expr: (time() - omnicare_pipeline_snapshot_generated_at_seconds > 300) and on() omnicare_dashboard_api_up == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Dashboard data snapshot is stale
+          description: The dashboard API is reachable but the exported generatedAt timestamp is older than five minutes.
+
+      - alert: OmniCareNoOrderLineFacts
+        expr: omnicare_pipeline_summary_value{metric="orderLines"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: No order-line facts are visible
+          description: The dashboard summary reports zero order lines, which usually means CDC replay has not populated Cassandra.

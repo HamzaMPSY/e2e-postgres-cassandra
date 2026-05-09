@@ -40,12 +40,19 @@ jobs:
         working-directory: dashboard
         run: PYTHONPATH=app python -m unittest discover -s tests
 
+      - name: Run observability exporter tests
+        run: PYTHONPATH=observability/exporter python -m unittest discover -s observability/exporter/tests
+
       - name: Run config validator tests
         run: PYTHONPATH=tools python -m unittest discover -s tools/tests
+
+      - name: Validate Grafana dashboard JSON
+        run: python -m json.tool observability/grafana/dashboards/omnicare-cdc.json >/dev/null
 
       - name: Compile Python modules
         run: |
           python -m py_compile transformer/src/omnicare_cdc/*.py
           python -m py_compile generator/src/omnicare_generator/*.py
           python -m py_compile dashboard/app/server.py
+          python -m py_compile observability/exporter/server.py
           python -m py_compile tools/validate_config.py

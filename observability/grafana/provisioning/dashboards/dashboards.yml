@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: OmniCare
+    orgId: 1
+    folder: OmniCare CDC
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

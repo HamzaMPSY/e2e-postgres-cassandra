@@ -202,3 +202,48 @@ services:
     environment:
       TRINO_URL: http://trino:8080
       DASHBOARD_PORT: 8080
+
+  metrics-exporter:
+    build:
+      context: ./observability/exporter
+    container_name: omnicare-metrics-exporter
+    depends_on:
+      - connect
+      - dashboard
+    ports:
+      - "18091:8080"
+    environment:
+      CONNECT_URL: http://connect:8083
+      DASHBOARD_URL: http://dashboard:8080
+      EXPORTER_PORT: 8080
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: omnicare-prometheus
+    depends_on:
+      - metrics-exporter
+    ports:
+      - "19090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: omnicare-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "13000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro

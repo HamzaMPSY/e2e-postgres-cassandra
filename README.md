@@ -9,7 +9,7 @@ PostgreSQL + MySQL + MongoDB + optional Oracle
   -> Python transformer
   -> Cassandra dashboard star tables
   -> Trino
-  -> Superset dashboards
+  -> Browser dashboard + Prometheus/Grafana observability
 ```
 
 ## Why this exists
@@ -22,6 +22,7 @@ The original project demonstrated Postgres to Cassandra CDC. This version turns 
 - Cassandra serving schema.
 - Trino SQL access.
 - Tested transformation code.
+- Browser dashboard and observability starter stack.
 - Production backlog and runbooks.
 
 ## Quick Start
@@ -144,6 +145,20 @@ http://localhost:18090
 ```
 
 It queries Trino over HTTP, then renders revenue, payment health, support risk, and order-to-cash cards from Cassandra serving tables.
+
+## Observability
+
+The local stack includes a first production-style observability slice:
+
+```text
+http://localhost:18091/metrics  # project metrics exporter
+http://localhost:19090          # Prometheus
+http://localhost:13000          # Grafana, admin/admin
+```
+
+The exporter reads Kafka Connect status and the dashboard API snapshot, then exposes connector health, task health, dashboard API health, snapshot freshness, and dashboard summary values as Prometheus metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
+
+This is the starter operational layer. Full production hardening still needs Kafka consumer lag, DLQ volume, Debezium/JMX internals, and Cassandra write-latency metrics emitted by the transformer and platform runtime.
 
 ## Production Rule
 
