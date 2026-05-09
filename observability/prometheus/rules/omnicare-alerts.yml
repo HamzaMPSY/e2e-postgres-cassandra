@@ -55,6 +55,24 @@ groups:
           summary: No order-line facts are visible
           description: The dashboard summary reports zero order lines, which usually means CDC replay has not populated Cassandra.
 
+      - alert: OmniCareDataQualityGateFailed
+        expr: omnicare_data_quality_overall_status{status="fail"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Dashboard data quality gate failed
+          description: At least one dashboard data quality check is failing. Inspect omnicare_data_quality_check_passed for the failing check.
+
+      - alert: OmniCareDataQualityGateWarning
+        expr: omnicare_data_quality_overall_status{status="warn"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Dashboard data quality gate is warning
+          description: Dashboard quality checks are warning, usually because freshness or completeness cannot be proven.
+
       - alert: OmniCareTransformerDown
         expr: up{job="omnicare-transformer"} == 0
         for: 2m

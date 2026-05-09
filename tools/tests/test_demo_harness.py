@@ -32,6 +32,7 @@ class DemoHarnessTest(unittest.TestCase):
             "fact_support_case_by_customer",
             "fact_inventory_movement_by_product",
             "http://localhost:18090/api/dashboard",
+            "tools/quality_gate.py",
             "--dry-run",
         ):
             self.assertIn(expected, content)

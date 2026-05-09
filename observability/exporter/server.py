@@ -90,6 +90,10 @@ class MetricsCollector:
             "# TYPE omnicare_pipeline_snapshot_generated_at_seconds gauge",
             "# HELP omnicare_pipeline_summary_value Current dashboard summary values.",
             "# TYPE omnicare_pipeline_summary_value gauge",
+            "# HELP omnicare_data_quality_check_passed Dashboard data quality check pass state.",
+            "# TYPE omnicare_data_quality_check_passed gauge",
+            "# HELP omnicare_data_quality_overall_status Dashboard data quality overall status.",
+            "# TYPE omnicare_data_quality_overall_status gauge",
         ]
         try:
             payload = http_json(f"{self._dashboard_url}/api/dashboard")
@@ -101,6 +105,7 @@ class MetricsCollector:
                 metrics.append(
                     f'omnicare_pipeline_summary_value{{metric="{label_value(name)}"}} {numeric(value)}'
                 )
+            metrics.extend(data_quality_metrics(payload.get("dataQuality") or {}))
         except Exception as exc:
             metrics.append("omnicare_dashboard_api_up 0")
             metrics.append(
@@ -129,6 +134,32 @@ def connector_metrics(name: str, status: Any) -> list[str]:
                 f'omnicare_connector_task_running{{connector="{label_value(name)}",task="{task_id}"}} '
                 f"{1 if state == 'RUNNING' else 0}"
             )
+    return metrics
+
+
+def data_quality_metrics(data_quality: Any) -> list[str]:
+    if not isinstance(data_quality, dict):
+        return []
+    overall = str(data_quality.get("overallStatus") or "unknown")
+    metrics = [
+        (
+            f'omnicare_data_quality_overall_status{{status="{label_value(status)}"}} '
+            f"{1 if overall == status else 0}"
+        )
+        for status in ("pass", "warn", "fail")
+    ]
+    checks = data_quality.get("checks") or []
+    if not isinstance(checks, list):
+        return metrics
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        name = label_value(str(check.get("name") or "unknown"))
+        status = str(check.get("status") or "unknown")
+        metrics.append(
+            f'omnicare_data_quality_check_passed{{check="{name}",status="{label_value(status)}"}} '
+            f"{1 if status == 'pass' else 0}"
+        )
     return metrics
 
 

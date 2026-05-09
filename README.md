@@ -52,6 +52,8 @@ The harness starts the stack, registers connectors, generates source data, runs 
 
 CI runs the harness in a container-free dry-run smoke profile on every push and pull request. A manually gated live Podman profile is documented in `docs/v2/CI_E2E_SMOKE.md` for prepared self-hosted runners.
 
+The dashboard response includes data quality checks for query success, row counts, event freshness, and order-to-payment reconciliation. The live demo harness fails if `python tools/quality_gate.py` rejects the dashboard snapshot; details are in `docs/v2/DATA_QUALITY.md`.
+
 ## First Build Slice
 
 This initial V2 slice includes:
@@ -205,6 +207,12 @@ http://localhost:18090
 
 It queries Trino over HTTP, then renders revenue, payment health, support risk, and order-to-cash cards from Cassandra serving tables.
 
+Run the live dashboard data quality gate with:
+
+```bash
+python tools/quality_gate.py --dashboard-url http://localhost:18090
+```
+
 ## Observability
 
 The local stack includes a first production-style observability slice:
@@ -217,7 +225,7 @@ http://localhost:19090          # Prometheus
 http://localhost:13000          # Grafana, admin/admin
 ```
 
-The exporter reads Kafka Connect status, Debezium JMX through Jolokia, and the dashboard API snapshot, then exposes connector health, task health, source lag, Debezium event throughput, dashboard API health, snapshot freshness, and dashboard summary values as Prometheus metrics. Kafka exporter adds consumer-group lag metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
+The exporter reads Kafka Connect status, Debezium JMX through Jolokia, and the dashboard API snapshot, then exposes connector health, task health, source lag, Debezium event throughput, dashboard API health, snapshot freshness, dashboard summary values, and data quality check results as Prometheus metrics. Kafka exporter adds consumer-group lag metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
 
 This is still a local observability profile, not a production monitoring platform. In production, wire the same metrics into managed Prometheus/Grafana or your platform standard, add retention, alert routing, SLOs, and service ownership.
 

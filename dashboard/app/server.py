@@ -11,6 +11,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+from quality import DEFAULT_MAX_EVENT_AGE_SECONDS, quality_report
+
 
 ROOT = Path(__file__).resolve().parent
 STATIC_ROOT = ROOT / "static"
@@ -73,14 +75,24 @@ class DashboardData:
         self._trino = trino
 
     def snapshot(self) -> dict[str, Any]:
+        generated_at = int(time.time())
         revenue = self._safe_query("revenue", REVENUE_BY_DAY)
         payments = self._safe_query("payments", PAYMENT_HEALTH)
         support = self._safe_query("support", SUPPORT_RISK)
         order_cash = self._safe_query("orderCash", ORDER_TO_CASH)
+        max_event_age_seconds = _freshness_window_seconds()
 
         return {
-            "generatedAt": int(time.time()),
+            "generatedAt": generated_at,
             "summary": _summary(revenue, payments, support, order_cash),
+            "dataQuality": quality_report(
+                generated_at=generated_at,
+                revenue=revenue,
+                payments=payments,
+                support=support,
+                order_cash=order_cash,
+                max_event_age_seconds=max_event_age_seconds,
+            ),
             "revenueByDay": revenue,
             "paymentHealth": payments,
             "supportRisk": support,
@@ -120,6 +132,19 @@ def _summary(
         "supportCases": support_cases,
         "openAmount": round(open_amount, 2),
     }
+
+
+def _freshness_window_seconds() -> int:
+    try:
+        value = int(
+            os.environ.get(
+                "DASHBOARD_FRESHNESS_MAX_AGE_SECONDS",
+                str(DEFAULT_MAX_EVENT_AGE_SECONDS),
+            )
+        )
+    except ValueError:
+        return DEFAULT_MAX_EVENT_AGE_SECONDS
+    return value if value > 0 else DEFAULT_MAX_EVENT_AGE_SECONDS
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -170,7 +195,8 @@ SELECT
   order_day,
   count(*) AS order_lines,
   sum(quantity) AS units_ordered,
-  sum(gross_amount_cents) / 100.0 AS gross_revenue
+  sum(gross_amount_cents) / 100.0 AS gross_revenue,
+  max(event_ts) AS last_event_ts
 FROM cassandra.omnicare_dashboard.fact_order_line_by_day
 GROUP BY order_day
 ORDER BY order_day DESC
@@ -181,18 +207,21 @@ SELECT
   activity_day AS payment_day,
   payment_status,
   count(*) AS payment_count,
-  sum(amount_cents) / 100.0 AS amount
+  sum(amount_cents) / 100.0 AS amount,
+  max(event_ts) AS last_event_ts
 FROM (
   SELECT
     payment_day AS activity_day,
     payment_status,
-    amount_cents
+    amount_cents,
+    event_ts
   FROM cassandra.omnicare_dashboard.fact_payment_by_day
   UNION ALL
   SELECT
     refund_day AS activity_day,
     'refunded' AS payment_status,
-    -amount_cents AS amount_cents
+    -amount_cents AS amount_cents,
+    event_ts
   FROM cassandra.omnicare_dashboard.fact_refund_by_day
 )
 GROUP BY activity_day, payment_status
@@ -204,7 +233,8 @@ SELECT
   opened_day,
   priority,
   status,
-  count(*) AS ticket_count
+  count(*) AS ticket_count,
+  max(event_ts) AS last_event_ts
 FROM cassandra.omnicare_dashboard.fact_support_case_by_customer
 GROUP BY opened_day, priority, status
 ORDER BY opened_day DESC, ticket_count DESC
@@ -216,7 +246,8 @@ WITH orders AS (
     order_id,
     customer_id,
     min(order_day) AS first_order_day,
-    sum(gross_amount_cents) AS ordered_amount_cents
+    sum(gross_amount_cents) AS ordered_amount_cents,
+    max(event_ts) AS last_order_event_ts
   FROM cassandra.omnicare_dashboard.fact_order_line_by_day
   GROUP BY order_id, customer_id
 ),
@@ -226,7 +257,8 @@ payments AS (
     customer_id,
     min(payment_day) AS first_payment_day,
     sum(CASE WHEN payment_status = 'captured' THEN amount_cents ELSE 0 END) AS captured_amount_cents,
-    sum(CASE WHEN payment_status = 'failed' THEN amount_cents ELSE 0 END) AS failed_amount_cents
+    sum(CASE WHEN payment_status = 'failed' THEN amount_cents ELSE 0 END) AS failed_amount_cents,
+    max(event_ts) AS last_payment_event_ts
   FROM cassandra.omnicare_dashboard.fact_payment_by_day
   GROUP BY order_id, customer_id
 )
@@ -238,7 +270,11 @@ SELECT
   o.ordered_amount_cents / 100.0 AS ordered_amount,
   p.captured_amount_cents / 100.0 AS captured_amount,
   p.failed_amount_cents / 100.0 AS failed_amount,
-  (o.ordered_amount_cents - COALESCE(p.captured_amount_cents, 0)) / 100.0 AS open_amount
+  (o.ordered_amount_cents - COALESCE(p.captured_amount_cents, 0)) / 100.0 AS open_amount,
+  GREATEST(
+    COALESCE(o.last_order_event_ts, TIMESTAMP '1970-01-01 00:00:00'),
+    COALESCE(p.last_payment_event_ts, TIMESTAMP '1970-01-01 00:00:00')
+  ) AS last_event_ts
 FROM orders o
 LEFT JOIN payments p
   ON p.order_id = o.order_id

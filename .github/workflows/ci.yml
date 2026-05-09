@@ -75,11 +75,13 @@ jobs:
           python -m py_compile transformer/src/omnicare_cdc/*.py
           python -m py_compile generator/src/omnicare_generator/*.py
           python -m py_compile dashboard/app/server.py
+          python -m py_compile dashboard/app/quality.py
           python -m py_compile observability/exporter/server.py
           python -m py_compile tools/validate_config.py
           python -m py_compile tools/security_check.py
           python -m py_compile tools/validate_deployments.py
           python -m py_compile tools/validate_contracts.py
+          python -m py_compile tools/quality_gate.py
 
   e2e-smoke:
     name: E2E demo dry-run smoke

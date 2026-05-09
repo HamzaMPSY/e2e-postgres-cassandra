@@ -11,6 +11,7 @@ Podman Compose stack
   -> bounded transformer smoke consumer
   -> Cassandra row-count verification
   -> dashboard API non-empty verification
+  -> dashboard data quality gate
   -> JSON demo report
 ```
 
@@ -63,6 +64,7 @@ The harness fails if:
 - Local connectors do not reach `RUNNING` state.
 - Cassandra serving tables stay empty.
 - The dashboard API does not return non-empty revenue data.
+- The dashboard data quality gate reports a failed check.
 
 Verified Cassandra tables:
 
@@ -77,6 +79,7 @@ The JSON report includes:
 
 - Cassandra row counts.
 - Dashboard summary metrics.
+- Dashboard data quality status and check details.
 - Dashboard, Grafana, and Prometheus URLs.
 - A `status=passed` marker.
 

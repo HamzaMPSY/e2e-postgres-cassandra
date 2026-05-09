@@ -276,6 +276,9 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     payload = json.load(handle)
 summary = payload.get("summary", {})
 if int(summary.get("orderLines") or 0) > 0 and payload.get("revenueByDay"):
+    data_quality = payload.get("dataQuality") or {}
+    if data_quality.get("overallStatus") == "fail":
+        raise SystemExit(1)
     raise SystemExit(0)
 raise SystemExit(1)
 PY
@@ -325,6 +328,7 @@ report = {
     "checks": {
         "cassandraRowCounts": counts,
         "dashboardSummary": dashboard.get("summary", {}),
+        "dataQuality": dashboard.get("dataQuality", {}),
     },
     "dashboardUrl": "http://localhost:18090",
     "grafanaUrl": "http://localhost:13000",
@@ -401,6 +405,9 @@ inventory_movements="$(wait_cassandra_count fact_inventory_movement_by_product)"
 snapshot_file="$(mktemp)"
 trap 'rm -f "$snapshot_file"' EXIT
 wait_dashboard_data "$snapshot_file"
+run python tools/quality_gate.py \
+  --snapshot-file "$snapshot_file" \
+  --max-snapshot-age-seconds "$timeout_seconds"
 write_report "$snapshot_file" "$order_lines" "$payments" "$support_cases" "$inventory_movements"
 
 log "demo passed"

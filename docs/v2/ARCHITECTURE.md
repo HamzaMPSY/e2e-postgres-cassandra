@@ -161,6 +161,12 @@ It ties together:
 
 Schema-change rules are documented in `docs/v2/SCHEMA_GOVERNANCE.md`.
 
+## Data Quality Gates
+
+The dashboard API includes runtime data quality checks for query success, non-negative aggregates, event freshness, and order-to-payment reconciliation. `scripts/demo-e2e.sh` runs `tools/quality_gate.py` against the dashboard snapshot before reporting success.
+
+Prometheus exports the same quality status through `omnicare_data_quality_*` metrics, with alert rules for failed and warning states. Details are documented in `docs/v2/DATA_QUALITY.md`.
+
 ## Production Deployment Variants
 
 ### AWS

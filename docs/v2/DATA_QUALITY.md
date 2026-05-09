@@ -1,0 +1,78 @@
+# Data Quality and Reconciliation Gates
+
+CDCV2-020 adds operational quality gates around the dashboard-serving model. The goal is to catch bad CDC outcomes after the pipeline technically runs but before a dashboard is trusted.
+
+## Runtime Quality Report
+
+`GET /api/dashboard` now includes a `dataQuality` object:
+
+```json
+{
+  "overallStatus": "pass",
+  "maxEventAgeSeconds": 86400,
+  "checks": [
+    {
+      "name": "dashboard_queries_ok",
+      "status": "pass"
+    }
+  ]
+}
+```
+
+Checks:
+
+- `dashboard_queries_ok`: dashboard SQL queries must not return partial error rows.
+- `non_negative_row_counts`: aggregate row counts must not be negative.
+- `order_payment_reconciliation`: captured payments minus refunds must not exceed ordered revenue, and order open amounts must not go negative.
+- `pipeline_event_freshness`: materialized events must be inside `DASHBOARD_FRESHNESS_MAX_AGE_SECONDS`.
+
+Default freshness window:
+
+```text
+86400 seconds
+```
+
+## CLI Gate
+
+Validate a live dashboard:
+
+```bash
+python tools/quality_gate.py --dashboard-url http://localhost:18090
+```
+
+Validate a saved snapshot:
+
+```bash
+python tools/quality_gate.py --snapshot-file artifacts/dashboard-snapshot.json
+```
+
+The command exits non-zero on failed checks, stale snapshots, missing `dataQuality`, or warnings unless `--allow-warnings` is set.
+
+## Demo Harness Gate
+
+`scripts/demo-e2e.sh` now runs the quality gate after the dashboard returns non-empty data and before writing `artifacts/demo-report.json`. The report embeds the quality output under:
+
+```text
+checks.dataQuality
+```
+
+## Observability
+
+The metrics exporter emits:
+
+```text
+omnicare_data_quality_overall_status{status="pass|warn|fail"}
+omnicare_data_quality_check_passed{check="...",status="..."}
+```
+
+Prometheus alert rules fail fast on `overallStatus=fail` and warn on sustained `overallStatus=warn`.
+
+## Production Notes
+
+These gates are intentionally deterministic and dashboard-focused. In a real production rollout, add source-specific controls too:
+
+- Source row count vs. Kafka event count by capture window.
+- Kafka topic count vs. Cassandra write count by source position.
+- DLQ count by source topic and deployment version.
+- Per-source freshness SLOs instead of one global dashboard window.
+- Reconciliation tolerance windows for asynchronous payments and refunds.

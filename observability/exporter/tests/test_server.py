@@ -6,6 +6,7 @@ from unittest.mock import patch
 from server import (
     MetricsCollector,
     connector_metrics,
+    data_quality_metrics,
     debezium_jolokia_metrics,
     debezium_labels,
     label_value,
@@ -48,6 +49,27 @@ class ExporterTest(unittest.TestCase):
         self.assertIn("omnicare_kafka_connect_up 0", metrics)
         self.assertIn("omnicare_debezium_jmx_up 0", metrics)
         self.assertIn("omnicare_dashboard_api_up 0", metrics)
+
+    def test_data_quality_metrics_render_overall_and_checks(self) -> None:
+        metrics = data_quality_metrics(
+            {
+                "overallStatus": "warn",
+                "checks": [
+                    {"name": "dashboard_queries_ok", "status": "pass"},
+                    {"name": "pipeline_event_freshness", "status": "warn"},
+                ],
+            }
+        )
+
+        self.assertIn('omnicare_data_quality_overall_status{status="warn"} 1', metrics)
+        self.assertIn(
+            'omnicare_data_quality_check_passed{check="dashboard_queries_ok",status="pass"} 1',
+            metrics,
+        )
+        self.assertIn(
+            'omnicare_data_quality_check_passed{check="pipeline_event_freshness",status="warn"} 0',
+            metrics,
+        )
 
     def test_debezium_labels_extract_connector_context_and_domain(self) -> None:
         labels = debezium_labels(

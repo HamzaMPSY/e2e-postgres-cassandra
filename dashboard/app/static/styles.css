@@ -266,6 +266,24 @@ h3 {
   font-weight: 800;
 }
 
+.quality-pass {
+  border-color: rgba(15, 118, 110, 0.3);
+  background: #dff3ec;
+  color: #0f766e;
+}
+
+.quality-warn {
+  border-color: rgba(180, 83, 9, 0.3);
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.quality-fail {
+  border-color: rgba(185, 28, 28, 0.3);
+  background: #fee2e2;
+  color: var(--danger);
+}
+
 .status-value {
   font-weight: 900;
 }

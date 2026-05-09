@@ -13,6 +13,8 @@ const els = {
   revenueChart: document.querySelector("#revenueChart"),
   paymentList: document.querySelector("#paymentList"),
   supportList: document.querySelector("#supportList"),
+  qualityStatus: document.querySelector("#qualityStatus"),
+  qualityList: document.querySelector("#qualityList"),
   cashTable: document.querySelector("#cashTable"),
 };
 
@@ -57,6 +59,7 @@ function render(data) {
   renderRevenue(data.revenueByDay || []);
   renderPayments(data.paymentHealth || []);
   renderSupport(data.supportRisk || []);
+  renderQuality(data.dataQuality || {});
   renderCash(data.orderToCash || []);
 }
 
@@ -114,6 +117,31 @@ function renderSupport(rows) {
   );
 }
 
+function renderQuality(dataQuality) {
+  const status = dataQuality.overallStatus || "unknown";
+  els.qualityStatus.textContent = status;
+  els.qualityStatus.className = `pill quality-${status}`;
+  const checks = dataQuality.checks || [];
+  if (!checks.length) {
+    els.qualityList.innerHTML = empty("No quality checks yet.");
+    return;
+  }
+  els.qualityList.innerHTML = checks
+    .map((check) => {
+      const checkStatus = String(check.status || "unknown");
+      return `
+        <div class="status-item">
+          <div class="status-label">
+            <strong>${escapeHtml(check.name || "unknown")}</strong>
+            <span class="tag quality-${escapeHtml(checkStatus)}">${escapeHtml(checkStatus)}</span>
+          </div>
+          <div class="status-value">${qualityDetail(check)}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function renderStatusList(target, rows, emptyMessage, template) {
   const error = rows.find((row) => row.error);
   if (error) {
@@ -162,6 +190,18 @@ function shortId(value) {
   if (!value) return "-";
   const text = String(value);
   return escapeHtml(text.length > 14 ? `${text.slice(0, 8)}...${text.slice(-4)}` : text);
+}
+
+function qualityDetail(check) {
+  const details = check.details || {};
+  if (typeof details.ageSeconds === "number") return `${number.format(details.ageSeconds)}s`;
+  if (Array.isArray(details.failures) && details.failures.length) {
+    return escapeHtml(details.failures[0]);
+  }
+  if (Array.isArray(details.errors) && details.errors.length) {
+    return escapeHtml(details.errors[0]);
+  }
+  return "";
 }
 
 function escapeHtml(value) {
