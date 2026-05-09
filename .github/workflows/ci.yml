@@ -67,8 +67,11 @@ jobs:
       - name: Validate local preflight dry-run
         run: scripts/local-preflight.sh --dry-run --env-file .env.example --skip-podman
 
+      - name: Validate local status dry-run
+        run: scripts/local-status.sh --dry-run --skip-podman
+
       - name: Validate shell scripts
-        run: bash -n scripts/cdc-replay.sh scripts/request-resnapshot.sh scripts/connect-connector.sh scripts/register-connectors.sh scripts/demo-e2e.sh scripts/anomaly-e2e.sh scripts/recover-bad-facts.sh scripts/local-preflight.sh
+        run: bash -n scripts/cdc-replay.sh scripts/request-resnapshot.sh scripts/connect-connector.sh scripts/register-connectors.sh scripts/demo-e2e.sh scripts/anomaly-e2e.sh scripts/recover-bad-facts.sh scripts/local-preflight.sh scripts/local-status.sh
 
       - name: Validate Grafana dashboard JSON
         run: python -m json.tool observability/grafana/dashboards/omnicare-cdc.json >/dev/null
@@ -86,6 +89,7 @@ jobs:
           python -m py_compile tools/validate_contracts.py
           python -m py_compile tools/quality_gate.py
           python -m py_compile tools/local_preflight.py
+          python -m py_compile tools/local_status.py
 
   e2e-smoke:
     name: E2E demo dry-run smoke

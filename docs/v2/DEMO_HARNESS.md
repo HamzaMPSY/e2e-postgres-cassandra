@@ -43,6 +43,18 @@ scripts/demo-e2e.sh \
   --report-file artifacts/demo-report.json
 ```
 
+After the stack is running, the live status command summarizes containers, connector state, dashboard quality, local observability endpoints, and standard artifacts:
+
+```bash
+scripts/local-status.sh --report-file artifacts/status-report.json
+```
+
+When the optional Oracle source profile is running and `oracle-erp-local` is registered, include it explicitly:
+
+```bash
+scripts/local-status.sh --extra-connector oracle-erp-local
+```
+
 ## CI-Friendly Dry Run
 
 The dry run prints the planned commands and does not require containers:
@@ -51,6 +63,10 @@ The dry run prints the planned commands and does not require containers:
 scripts/local-preflight.sh \
   --dry-run \
   --env-file .env.example \
+  --skip-podman
+
+scripts/local-status.sh \
+  --dry-run \
   --skip-podman
 
 scripts/demo-e2e.sh \

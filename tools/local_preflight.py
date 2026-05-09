@@ -41,6 +41,7 @@ STATIC_VALIDATION_COMMANDS = [
         "scripts/register-connectors.sh",
         "scripts/recover-bad-facts.sh",
         "scripts/local-preflight.sh",
+        "scripts/local-status.sh",
     ],
 ]
 

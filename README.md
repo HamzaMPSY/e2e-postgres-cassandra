@@ -78,6 +78,18 @@ curl -fsS http://localhost:18083/connectors
 curl -fsS http://localhost:19090/-/ready
 ```
 
+Get a one-command operator view after the stack is running:
+
+```bash
+scripts/local-status.sh --report-file artifacts/status-report.json
+```
+
+If you started the optional Oracle profile and registered its connector, include it in the live status check:
+
+```bash
+scripts/local-status.sh --extra-connector oracle-erp-local
+```
+
 ### 2. Register CDC connectors
 
 ```bash
@@ -342,6 +354,7 @@ Common commands:
 
 ```bash
 scripts/local-preflight.sh --env-file .env --report-file artifacts/preflight-report.json
+scripts/local-status.sh --report-file artifacts/status-report.json
 scripts/cdc-replay.sh --topic cdc.local.omnicare.postgres.public.customers --max-messages 1000
 scripts/request-resnapshot.sh --connector postgres-orders-local --data-collection public.customers
 scripts/recover-bad-facts.sh --payment-id-prefix PAY-ANOM- --ticket-id-prefix TCK-ANOM- --yes
@@ -378,6 +391,12 @@ Run the live dashboard data quality gate with:
 
 ```bash
 python tools/quality_gate.py --dashboard-url http://localhost:18090
+```
+
+Run the live local status summary with:
+
+```bash
+scripts/local-status.sh
 ```
 
 ## Observability

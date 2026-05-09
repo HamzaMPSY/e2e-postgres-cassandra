@@ -6,9 +6,10 @@ The CI dry-run profile also runs:
 
 ```bash
 scripts/local-preflight.sh --dry-run --env-file .env.example --skip-podman
+scripts/local-status.sh --dry-run --skip-podman
 ```
 
-That confirms the local demo preflight command path without requiring Podman on generic hosted runners.
+That confirms the local preflight and operator status command paths without requiring Podman on generic hosted runners.
 
 ## Pull Request Smoke
 
