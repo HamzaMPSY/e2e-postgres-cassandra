@@ -155,7 +155,7 @@ def load_connector_names(root: Path, errors: list[str]) -> set[str]:
 
 
 def validate_connector_configs(root: Path, errors: list[str]) -> None:
-    for path in sorted((root / "connectors").glob("*.json")):
+    for path in sorted((root / "connectors").rglob("*.json")):
         payload = load_json(path, errors)
         if not isinstance(payload, dict):
             continue
@@ -202,6 +202,8 @@ def scan_for_committed_secrets(root: Path, errors: list[str], warnings: list[str
                 warnings.append(f"{relative}:{line_number}: high-entropy-looking token requires review")
             key, value = parse_assignment(path, line)
             if not key or not SECRET_KEY.search(key):
+                continue
+            if is_config_provider_class_key(key):
                 continue
             if SECRET_REFERENCE_KEY.match(key):
                 continue
@@ -265,6 +267,11 @@ def parse_assignment(path: Path, line: str) -> tuple[str | None, str]:
 
 def normalize_value(value: str) -> str:
     return value.strip().strip(",").strip().strip('"').strip("'")
+
+
+def is_config_provider_class_key(key: str) -> bool:
+    normalized = key.lower()
+    return normalized.startswith("config.providers.") and normalized.endswith(".class")
 
 
 def is_allowed_secret_value(path: Path, value: str) -> bool:

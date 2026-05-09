@@ -24,4 +24,4 @@ flowchart LR
 - Use private connectivity for source databases.
 - Store credentials and certificates in Secret Manager.
 - Use Dataflow for managed transformations when the target is GCS/BigQuery/Cassandra-compatible sinks.
-- Use GKE-hosted Debezium instead of Datastream when Kafka topic semantics must exactly match the local demo.
+- Use GKE-hosted Debezium instead of Datastream when Kafka topic semantics must exactly match the local demo. In that mode, start from `connectors/production/` and replace the `secrets` config provider with the approved GCP Secret Manager provider.

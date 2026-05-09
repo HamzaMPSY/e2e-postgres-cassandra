@@ -20,10 +20,7 @@ jobs:
 
       - name: Validate connector JSON
         run: |
-          python -m json.tool connectors/postgres-orders.json >/dev/null
-          python -m json.tool connectors/mysql-billing.json >/dev/null
-          python -m json.tool connectors/mongo-engagement.json >/dev/null
-          python -m json.tool connectors/oracle-erp.template.json >/dev/null
+          find connectors -name '*.json' -print -exec python -m json.tool {} \; >/dev/null
 
       - name: Validate CDC config
         run: python tools/validate_config.py

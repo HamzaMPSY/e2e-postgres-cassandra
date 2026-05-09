@@ -11,6 +11,7 @@ These templates are production skeletons for CDCV2-012. They are not a one-comma
 All deployment paths must honor:
 
 - `docs/v2/security-controls.json` for secrets, TLS, ACL, PII, and source-user controls.
+- `docs/v2/CONNECTOR_TEMPLATES.md` for production connector config provider, TLS, and logging requirements.
 - `docs/v2/RUNBOOKS.md` for replay, resnapshot, and recovery operations.
 - Immutable application images for `transformer`, `dashboard`, and `observability/exporter`.
 

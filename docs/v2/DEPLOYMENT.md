@@ -25,6 +25,8 @@ flowchart LR
 
 Use `deployments/aws` when Kafka topics are part of the long-lived platform contract. The Terraform skeleton creates MSK Connect worker configuration, connector placeholders, log groups, and runtime IAM policy boundaries. Connector configs are environment overlays so CDCV2-016 can add source-specific production templates without mixing secrets into this infrastructure layer.
 
+Production Debezium connector templates are in `connectors/production/`. The AWS worker configuration enables the `secrets` config provider and connector client overrides so templates can reference AWS Secrets Manager values and Kafka TLS material without embedding secrets in connector JSON.
+
 ## GCP Path
 
 ```mermaid
@@ -55,6 +57,8 @@ flowchart LR
 
 Use `deployments/datacenter/helm/omnicare-cdc` when the organization owns Kubernetes and Kafka operations. The Helm skeleton defines Strimzi Kafka/KafkaConnect, TLS users, ACLs for the transformer, and runtime deployments for the transformer and dashboard.
 
+The Strimzi KafkaConnect template enables the Kubernetes secret config provider and connector client overrides. In datacenter deployments, replace the example provider with the approved Vault or External Secrets integration if Kubernetes Secrets are only a synchronization target.
+
 ## Required Gates
 
 Before applying any environment:
@@ -65,4 +69,4 @@ python tools/security_check.py
 python tools/validate_config.py
 ```
 
-The templates are skeletons. A production rollout still needs environment-specific networking, image registry, certificate issuance, secret provider wiring, and source database approval.
+The templates are skeletons. A production rollout still needs environment-specific networking, image registry, certificate issuance, secret provider wiring, source database approval, and a dry-run connector registration in a non-production Kafka Connect cluster.

@@ -89,6 +89,11 @@ REQUIRED_PATTERNS_FOR_TESTS = {
         "aws_iam_policy",
         "security-controls.json",
     ],
+    "deployments/aws/worker.properties": [
+        "config.providers=secrets",
+        "connector.client.config.override.policy=All",
+        "errors.log.include.messages=false",
+    ],
     "deployments/gcp/main.tf": [
         "google_datastream_stream",
         "google_dataflow_flex_template_job",
@@ -103,6 +108,8 @@ REQUIRED_PATTERNS_FOR_TESTS = {
     ],
     "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml": [
         "kind: KafkaConnect",
+        "config.providers: secrets",
+        "connector.client.config.override.policy: All",
         "errors.log.include.messages: false",
         "authentication:",
     ],
@@ -118,6 +125,13 @@ REQUIRED_PATTERNS_FOR_TESTS = {
         "deployments/aws",
         "deployments/gcp",
         "deployments/datacenter/helm/omnicare-cdc",
+    ],
+    "docs/v2/CONNECTOR_TEMPLATES.md": [
+        "connectors/production/",
+        "config.providers=secrets",
+        "errors.log.include.messages=false",
+        "Source TLS",
+        "Kafka TLS",
     ],
 }
 

@@ -4,7 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from validate_config import REQUIRED_ENV_VARS, placeholders, validate_repo
+from validate_config import (
+    REQUIRED_ENV_VARS,
+    has_config_provider_reference,
+    placeholders,
+    validate_repo,
+)
 
 
 class ValidateConfigTest(unittest.TestCase):
@@ -58,6 +63,56 @@ class ValidateConfigTest(unittest.TestCase):
             placeholders({"a": "${ONE}", "b": ["${TWO}", {"c": "${THREE}"}]}),
             {"ONE", "TWO", "THREE"},
         )
+
+    def test_detects_config_provider_references(self) -> None:
+        self.assertTrue(
+            has_config_provider_reference(
+                {"database.password": "${secrets:cdc/prod/postgres/orders:password}"}
+            )
+        )
+        self.assertFalse(has_config_provider_reference({"database.password": "${PASSWORD}"}))
+
+    def test_rejects_incomplete_production_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "connectors" / "production").mkdir(parents=True)
+            (root / ".env.example").write_text(
+                "\n".join(f"{name}=value" for name in REQUIRED_ENV_VARS),
+                encoding="utf-8",
+            )
+            (root / "connectors" / "production" / "postgres.json").write_text(
+                """
+                {
+                  "name": "postgres-orders-prod",
+                  "config": {
+                    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                    "plugin.name": "pgoutput",
+                    "database.user": "${secrets:cdc/prod/postgres/orders:username}",
+                    "database.password": "${secrets:cdc/prod/postgres/orders:password}",
+                    "topic.prefix": "cdc.prod.omnicare.postgres",
+                    "publication.name": "dbz_omnicare_orders",
+                    "slot.name": "slot_a",
+                    "signal.enabled.channels": "source,kafka",
+                    "signal.data.collection": "public.debezium_signal",
+                    "signal.kafka.bootstrap.servers": "${secrets:cdc/prod/kafka:bootstrap_servers}",
+                    "signal.kafka.groupId": "omnicare-postgres-signals-prod",
+                    "signal.kafka.topic": "cdc.prod.omnicare.signals",
+                    "table.include.list": "public.customers,public.order_items,public.products,public.stock_movements,billing.payments,billing.refunds,engagement.support_tickets,public.debezium_signal",
+                    "errors.tolerance": "none",
+                    "errors.log.enable": "true",
+                    "errors.log.include.messages": "false"
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            result = validate_repo(root)
+
+        self.assertTrue(
+            any("producer.override.security.protocol" in error for error in result.errors)
+        )
+        self.assertTrue(any("database.sslmode" in error for error in result.errors))
 
     def test_detects_duplicate_signal_group_id(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

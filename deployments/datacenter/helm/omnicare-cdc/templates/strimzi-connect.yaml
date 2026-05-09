@@ -28,4 +28,9 @@ spec:
     value.converter: org.apache.kafka.connect.json.JsonConverter
     key.converter.schemas.enable: false
     value.converter.schemas.enable: false
+    config.providers: secrets
+    config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
+    connector.client.config.override.policy: All
+    errors.tolerance: none
+    errors.log.enable: true
     errors.log.include.messages: false

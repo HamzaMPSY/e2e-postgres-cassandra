@@ -10,7 +10,8 @@ from typing import Any
 
 
 PLACEHOLDER = re.compile(r"\$\{([A-Z0-9_]+)\}")
-TOPIC_PREFIX = re.compile(r"^cdc\.local\.omnicare\.(postgres|mysql|mongo|oracle)$")
+CONFIG_PROVIDER_REFERENCE = re.compile(r"\$\{(secrets|secret|vault|aws|gcp):[^}]+}")
+TOPIC_PREFIX = re.compile(r"^cdc\.(local|prod)\.omnicare\.(postgres|mysql|mongo|oracle)$")
 
 REQUIRED_ENV_VARS = {
     "POSTGRES_DB",
@@ -49,6 +50,13 @@ REQUIRED_SOURCE_COVERAGE = {
     "engagement.support_tickets",
 }
 
+REQUIRED_PRODUCTION_CONNECTORS = {
+    "connectors/production/postgres-orders.json",
+    "connectors/production/mysql-billing.json",
+    "connectors/production/mongo-engagement.json",
+    "connectors/production/oracle-erp.json",
+}
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -67,8 +75,11 @@ def validate_repo(root: Path) -> ValidationResult:
     env = parse_env_file(root / ".env.example")
     missing_env = sorted(REQUIRED_ENV_VARS - set(env))
     errors.extend(f".env.example missing required variable: {name}" for name in missing_env)
+    for relative in sorted(REQUIRED_PRODUCTION_CONNECTORS):
+        if not (root / relative).is_file():
+            errors.append(f"Missing production connector template: {relative}")
 
-    connector_files = sorted((root / "connectors").glob("*.json"))
+    connector_files = sorted((root / "connectors").rglob("*.json"))
     if not connector_files:
         errors.append("No connector JSON files found under connectors/")
         return ValidationResult(errors=errors, warnings=warnings)
@@ -168,6 +179,10 @@ def validate_connector(
     elif connector_class:
         errors.append(f"{path}: unsupported connector.class {connector_class!r}")
 
+    validate_safe_logging_defaults(path, config, errors)
+    if is_production_template(path, config):
+        validate_production_template(path, config, errors)
+
 
 def require_string(
     path: Path,
@@ -212,6 +227,73 @@ def require_resnapshot_signaling(
     require_string(path, config, "signal.kafka.topic", errors)
 
 
+def validate_safe_logging_defaults(
+    path: Path,
+    config: dict[str, Any],
+    errors: list[str],
+) -> None:
+    expected = {
+        "errors.tolerance": "none",
+        "errors.log.enable": "true",
+        "errors.log.include.messages": "false",
+    }
+    for key, expected_value in expected.items():
+        value = str(config.get(key, "")).strip().lower()
+        if value != expected_value:
+            errors.append(f"{path}: {key} must be {expected_value!r}")
+
+
+def is_production_template(path: Path, config: dict[str, Any]) -> bool:
+    name = config.get("topic.prefix")
+    return "production" in path.parts or (
+        isinstance(name, str) and name.startswith("cdc.prod.")
+    )
+
+
+def validate_production_template(
+    path: Path,
+    config: dict[str, Any],
+    errors: list[str],
+) -> None:
+    if not has_config_provider_reference(config):
+        errors.append(f"{path}: production connector must use config provider references")
+
+    producer_protocol = str(config.get("producer.override.security.protocol", "")).upper()
+    if producer_protocol not in {"SSL", "SASL_SSL"}:
+        errors.append(
+            f"{path}: producer.override.security.protocol must be SSL or SASL_SSL"
+        )
+
+    signal_protocol = str(config.get("signal.kafka.security.protocol", "")).upper()
+    if signal_protocol not in {"SSL", "SASL_SSL"}:
+        errors.append(f"{path}: signal.kafka.security.protocol must be SSL or SASL_SSL")
+
+    connector_class = str(config.get("connector.class", ""))
+    if "PostgresConnector" in connector_class:
+        sslmode = str(config.get("database.sslmode", "")).lower()
+        if sslmode not in {"verify-ca", "verify-full"}:
+            errors.append(f"{path}: database.sslmode must validate the server certificate")
+    elif "MySqlConnector" in connector_class:
+        ssl_mode = str(config.get("database.ssl.mode", "")).lower()
+        if ssl_mode not in {"verify_ca", "verify_identity"}:
+            errors.append(f"{path}: database.ssl.mode must validate the server certificate")
+        for key in (
+            "schema.history.internal.producer.security.protocol",
+            "schema.history.internal.consumer.security.protocol",
+        ):
+            value = str(config.get(key, "")).upper()
+            if value not in {"SSL", "SASL_SSL"}:
+                errors.append(f"{path}: {key} must be SSL or SASL_SSL")
+    elif "MongoDbConnector" in connector_class:
+        connection_string = str(config.get("mongodb.connection.string", ""))
+        ssl_enabled = str(config.get("mongodb.ssl.enabled", "")).lower()
+        if "tls=true" not in connection_string.lower() and ssl_enabled != "true":
+            errors.append(f"{path}: MongoDB production connector must enable TLS")
+    elif "OracleConnector" in connector_class:
+        if not config.get("database.wallet.file"):
+            errors.append(f"{path}: Oracle production connector must reference a wallet file")
+
+
 def collect_csv(config: dict[str, Any], key: str, target: set[str]) -> None:
     target.update(csv_values(config, key))
 
@@ -234,6 +316,16 @@ def placeholders(value: Any) -> set[str]:
     elif isinstance(value, str):
         found.update(PLACEHOLDER.findall(value))
     return found
+
+
+def has_config_provider_reference(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(has_config_provider_reference(child) for child in value.values())
+    if isinstance(value, list):
+        return any(has_config_provider_reference(child) for child in value)
+    if isinstance(value, str):
+        return bool(CONFIG_PROVIDER_REFERENCE.search(value))
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:

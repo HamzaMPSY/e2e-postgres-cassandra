@@ -18,6 +18,7 @@ flowchart LR
 ## Files
 
 - `main.tf`: infrastructure skeleton for MSK Connect workers, connector placeholders, replay job log groups, and runtime IAM boundaries.
+- `worker.properties`: MSK Connect worker defaults for secret config providers, connector client overrides, and safe connector logging.
 - `variables.tf`: required environment inputs.
 - `outputs.tf`: integration values for downstream deployment stages.
 
@@ -25,5 +26,5 @@ flowchart LR
 
 - Source credentials and TLS material come from Secrets Manager.
 - MSK Connect uses TLS in transit.
-- Connector configs are supplied through `var.connectors`; CDCV2-016 will add production connector templates that consume `docs/v2/security-controls.json`.
+- Connector configs are supplied through `var.connectors`; start from `connectors/production/` and resolve `${secrets:...}` values through the configured worker provider.
 - Transformer can run as ECS, EKS, or AWS Batch. This skeleton exposes the inputs those runtimes need without choosing one prematurely.

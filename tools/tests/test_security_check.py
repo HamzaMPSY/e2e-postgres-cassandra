@@ -59,6 +59,18 @@ class SecurityCheckTest(unittest.TestCase):
 
         self.assertEqual(result.errors, [])
 
+    def test_allows_config_provider_class_names(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _minimal_repo(Path(tmp))
+            (root / "worker.properties").write_text(
+                "config.providers.secrets.class=io.strimzi.kafka.KubernetesSecretConfigProvider\n",
+                encoding="utf-8",
+            )
+
+            result = check_repo(root)
+
+        self.assertEqual(result.errors, [])
+
     def test_detects_literal_secret_in_terraform(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))
@@ -118,6 +130,32 @@ class SecurityCheckTest(unittest.TestCase):
         self.assertTrue(
             any(
                 "errors.log.include.messages must not be true" in error
+                for error in result.errors
+            )
+        )
+
+    def test_rejects_production_connector_error_message_logging(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _minimal_repo(Path(tmp))
+            production_dir = root / "connectors" / "production"
+            production_dir.mkdir()
+            connector = production_dir / "postgres-orders.json"
+            connector.write_text(
+                json.dumps(
+                    {
+                        "name": "postgres-orders-prod",
+                        "config": {"errors.log.include.messages": "true"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = check_repo(root)
+
+        self.assertTrue(
+            any(
+                "connectors/production/postgres-orders.json" in error
+                and "errors.log.include.messages must not be true" in error
                 for error in result.errors
             )
         )

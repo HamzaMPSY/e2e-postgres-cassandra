@@ -15,6 +15,7 @@
     "capture.mode": "change_streams_update_full",
     "heartbeat.interval.ms": "10000",
     "errors.tolerance": "none",
-    "errors.log.enable": "true"
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "false"
   }
 }

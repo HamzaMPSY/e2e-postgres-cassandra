@@ -101,6 +101,8 @@ ENV_FILE=.env scripts/register-connectors.sh
 
 In production, prefer Kafka Connect config providers or a platform secrets integration instead of rendering secrets into JSON files.
 
+Production connector templates live under `connectors/production/`. They use config provider references for secrets, source/Kafka TLS settings, and redacted connector logging defaults. The contract is documented in `docs/v2/CONNECTOR_TEMPLATES.md`.
+
 Validate connector templates and required environment variables without starting containers:
 
 ```bash

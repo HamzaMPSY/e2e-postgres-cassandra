@@ -1,0 +1,30 @@
+{
+  "name": "mongo-engagement-prod",
+  "config": {
+    "connector.class": "io.debezium.connector.mongodb.MongoDbConnector",
+    "mongodb.connection.string": "mongodb://${secrets:cdc/prod/mongo/engagement:username}:${secrets:cdc/prod/mongo/engagement:password}@${secrets:cdc/prod/mongo/engagement:hosts}/?replicaSet=${secrets:cdc/prod/mongo/engagement:replica_set}&authSource=admin&tls=true",
+    "mongodb.ssl.enabled": "true",
+    "topic.prefix": "cdc.prod.omnicare.mongo",
+    "database.include.list": "engagement",
+    "collection.include.list": "engagement.support_tickets,engagement.customer_events,engagement.debezium_signal",
+    "snapshot.mode": "initial",
+    "signal.enabled.channels": "source,kafka",
+    "signal.data.collection": "engagement.debezium_signal",
+    "signal.kafka.bootstrap.servers": "${secrets:cdc/prod/kafka:bootstrap_servers}",
+    "signal.kafka.groupId": "omnicare-mongo-signals-prod",
+    "signal.kafka.topic": "cdc.prod.omnicare.signals",
+    "signal.kafka.security.protocol": "SSL",
+    "signal.kafka.ssl.truststore.location": "${secrets:cdc/prod/kafka:truststore_path}",
+    "signal.kafka.ssl.truststore.password": "${secrets:cdc/prod/kafka:truststore_password}",
+    "capture.mode": "change_streams_update_full",
+    "heartbeat.interval.ms": "10000",
+    "producer.override.security.protocol": "SSL",
+    "producer.override.ssl.truststore.location": "${secrets:cdc/prod/kafka:truststore_path}",
+    "producer.override.ssl.truststore.password": "${secrets:cdc/prod/kafka:truststore_password}",
+    "producer.override.ssl.keystore.location": "${secrets:cdc/prod/kafka:keystore_path}",
+    "producer.override.ssl.keystore.password": "${secrets:cdc/prod/kafka:keystore_password}",
+    "errors.tolerance": "none",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "false"
+  }
+}

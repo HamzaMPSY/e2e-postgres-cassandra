@@ -23,6 +23,7 @@
     "tombstones.on.delete": "true",
     "decimal.handling.mode": "string",
     "errors.tolerance": "none",
-    "errors.log.enable": "true"
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "false"
   }
 }
