@@ -242,6 +242,11 @@ report = {
             "postgresNegativeOrderQuantity": "rejected",
             "postgresNullProductId": "rejected",
             "mysqlNullAmount": "rejected",
+            "mysqlNegativePaymentAmount": "rejected",
+            "mysqlNegativeRefundAmount": "rejected",
+            "mongoMissingTicketId": "rejected",
+            "mongoNullRequiredFields": "rejected",
+            "mongoInvalidOpenedAt": "rejected",
         },
         "cassandraDeltas": {
             "fact_payment_by_day": int(sys.argv[4]) - int(sys.argv[3]),
@@ -290,8 +295,8 @@ if [[ "$dry_run" == true ]]; then
   if [[ "$skip_register_connectors" != true ]]; then
     run env ENV_FILE="$env_file" CONNECT_URL=http://localhost:18083 scripts/register-connectors.sh
   fi
-  printf '+ verify source rejects for PostgreSQL/MySQL constraints\n'
-  printf '+ insert accepted anomaly rows into MySQL payments and MongoDB support_tickets\n'
+  printf '+ verify source rejects for PostgreSQL/MySQL/MongoDB constraints\n'
+  printf '+ insert accepted anomaly rows into MySQL payments\n'
   run podman compose --env-file "$env_file" -f docker-compose.yaml run --rm --no-deps \
     -e KAFKA_GROUP_ID="anomaly-e2e-dry-run" \
     -e CDC_SOURCE_TOPICS="$active_topics" \
@@ -337,20 +342,40 @@ expect_failure "postgres null product id" \
   -d "${POSTGRES_DB:-orders}" -v ON_ERROR_STOP=1 \
   -c "WITH refs AS (SELECT order_id, customer_id, channel, order_status, ordered_at FROM order_items LIMIT 1) INSERT INTO order_items (order_item_id, order_id, customer_id, product_id, channel, order_status, ordered_at, quantity, unit_price_cents) SELECT '00000000-0000-4000-8000-00000000a102'::uuid, order_id, customer_id, NULL, channel, order_status, ordered_at, 1, 1000 FROM refs;"
 
-log "inserting accepted MySQL anomalies"
-run podman exec omnicare-mysql-billing mysql -u"${MYSQL_USER:-billing_cdc_demo}" \
-  -p"${MYSQL_PASSWORD:-change_me_billing}" "${MYSQL_DATABASE:-billing}" \
-  -e "INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT 'PAY-ANOM-OVERPAY-${anomaly_run_id}', invoice_id, order_id, customer_id, 'captured', 'card', 99999999, NOW() FROM payments LIMIT 1; INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT 'PAY-ANOM-NEGATIVE-${anomaly_run_id}', invoice_id, order_id, customer_id, 'captured', 'wire', -12345, NOW() FROM payments LIMIT 1; INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT 'PAY-ANOM-NULLPAID-${anomaly_run_id}', invoice_id, order_id, customer_id, 'pending', 'insurance', 7777, NULL FROM payments LIMIT 1;"
-
 expect_failure "mysql null amount" \
   podman exec omnicare-mysql-billing mysql -u"${MYSQL_USER:-billing_cdc_demo}" \
   -p"${MYSQL_PASSWORD:-change_me_billing}" "${MYSQL_DATABASE:-billing}" \
   -e "INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT CONCAT('PAY-ANOM-NULLAMOUNT-', UUID()), invoice_id, order_id, customer_id, 'captured', 'card', NULL, NOW() FROM payments LIMIT 1;"
 
-log "inserting accepted Mongo anomalies"
-run podman exec omnicare-mongo-engagement mongosh \
+expect_failure "mysql negative payment amount" \
+  podman exec omnicare-mysql-billing mysql -u"${MYSQL_USER:-billing_cdc_demo}" \
+  -p"${MYSQL_PASSWORD:-change_me_billing}" "${MYSQL_DATABASE:-billing}" \
+  -e "INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT CONCAT('PAY-ANOM-NEGATIVE-', UUID()), invoice_id, order_id, customer_id, 'captured', 'wire', -12345, NOW() FROM payments LIMIT 1;"
+
+expect_failure "mysql negative refund amount" \
+  podman exec omnicare-mysql-billing mysql -u"${MYSQL_USER:-billing_cdc_demo}" \
+  -p"${MYSQL_PASSWORD:-change_me_billing}" "${MYSQL_DATABASE:-billing}" \
+  -e "INSERT INTO refunds (refund_id, payment_id, refund_reason, amount_cents, refunded_at) SELECT CONCAT('REF-ANOM-NEGATIVE-', UUID()), payment_id, 'duplicate_charge', -1200, NOW() FROM payments LIMIT 1;"
+
+expect_failure "mongo null required fields" \
+  podman exec omnicare-mongo-engagement mongosh \
   "mongodb://localhost:27017/engagement?replicaSet=rs0" \
-  --quiet --eval "const now = new Date(); const runId = '${anomaly_run_id}'; db.support_tickets.insertMany([{ ticket_id: 'TCK-ANOM-NULL-CUSTOMER-' + runId, customer_id: null, priority: null, status: null, opened_at: now, sla_due_at: null, closed_at: null }, { customer_id: 'mongo-missing-ticket-' + runId, priority: 'critical', status: 'open', opened_at: now, sla_due_at: null, closed_at: null }, { ticket_id: 'TCK-ANOM-BAD-DATE-' + runId, customer_id: 'mongo-bad-date-' + runId, priority: 'high', status: 'open', opened_at: 'not-a-date', sla_due_at: null, closed_at: null }]);"
+  --quiet --eval "const now = new Date(); db.support_tickets.insertOne({ ticket_id: 'TCK-ANOM-NULL-CUSTOMER-${anomaly_run_id}', customer_id: null, priority: null, status: null, opened_at: now, sla_due_at: null, closed_at: null });"
+
+expect_failure "mongo missing ticket id" \
+  podman exec omnicare-mongo-engagement mongosh \
+  "mongodb://localhost:27017/engagement?replicaSet=rs0" \
+  --quiet --eval "const now = new Date(); db.support_tickets.insertOne({ customer_id: 'mongo-missing-ticket-${anomaly_run_id}', priority: 'critical', status: 'open', opened_at: now, sla_due_at: null, closed_at: null });"
+
+expect_failure "mongo invalid opened_at" \
+  podman exec omnicare-mongo-engagement mongosh \
+  "mongodb://localhost:27017/engagement?replicaSet=rs0" \
+  --quiet --eval "db.support_tickets.insertOne({ ticket_id: 'TCK-ANOM-BAD-DATE-${anomaly_run_id}', customer_id: 'mongo-bad-date-${anomaly_run_id}', priority: 'high', status: 'open', opened_at: 'not-a-date', sla_due_at: null, closed_at: null });"
+
+log "inserting accepted MySQL anomalies"
+run podman exec omnicare-mysql-billing mysql -u"${MYSQL_USER:-billing_cdc_demo}" \
+  -p"${MYSQL_PASSWORD:-change_me_billing}" "${MYSQL_DATABASE:-billing}" \
+  -e "INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT 'PAY-ANOM-OVERPAY-${anomaly_run_id}', invoice_id, order_id, customer_id, 'captured', 'card', 99999999, NOW() FROM payments LIMIT 1; INSERT INTO payments (payment_id, invoice_id, order_id, customer_id, payment_status, payment_method, amount_cents, paid_at) SELECT 'PAY-ANOM-NULLPAID-${anomaly_run_id}', invoice_id, order_id, customer_id, 'pending', 'insurance', 7777, NULL FROM payments LIMIT 1;"
 
 group_id="anomaly-e2e-$(date -u +%Y%m%dT%H%M%SZ)"
 log "running bounded transformer anomaly consumer"
@@ -372,10 +397,9 @@ support_delta=$((after_support - before_support))
 dlq_delta=$((after_dlq - before_dlq))
 accepted_payment_count="$(cassandra_filtered_count fact_payment_by_day "payment_id = 'PAY-ANOM-NULLPAID-${anomaly_run_id}'" || printf '0')"
 bad_overpay_count="$(cassandra_filtered_count fact_payment_by_day "payment_id = 'PAY-ANOM-OVERPAY-${anomaly_run_id}'" || printf '0')"
-bad_negative_count="$(cassandra_filtered_count fact_payment_by_day "payment_id = 'PAY-ANOM-NEGATIVE-${anomaly_run_id}'" || printf '0')"
 bad_support_null_count="$(cassandra_filtered_count fact_support_case_by_customer "ticket_id = 'TCK-ANOM-NULL-CUSTOMER-${anomaly_run_id}'" || printf '0')"
 bad_support_date_count="$(cassandra_filtered_count fact_support_case_by_customer "ticket_id = 'TCK-ANOM-BAD-DATE-${anomaly_run_id}'" || printf '0')"
-bad_payment_count=$((bad_overpay_count + bad_negative_count))
+bad_payment_count=$((bad_overpay_count))
 bad_support_count=$((bad_support_null_count + bad_support_date_count))
 
 if (( accepted_payment_count != 1 )); then
@@ -390,8 +414,8 @@ if (( bad_support_count > 0 )); then
   echo "Expected no malformed support anomalies in Cassandra, got $bad_support_count." >&2
   exit 1
 fi
-if (( dlq_delta < 4 )); then
-  echo "Expected at least four anomaly DLQ records, got $dlq_delta." >&2
+if (( dlq_delta < 1 )); then
+  echo "Expected at least one transformer anomaly DLQ record, got $dlq_delta." >&2
   exit 1
 fi
 

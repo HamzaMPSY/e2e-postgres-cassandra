@@ -82,6 +82,84 @@ class ValidateContractsTest(unittest.TestCase):
 
         self.assertTrue(any("public.unmapped_table" in error for error in result.errors))
 
+    def test_detects_missing_mysql_source_quality_rules(self) -> None:
+        with self._fixture_root() as root:
+            contract_path = root / "contracts" / "cdc-data-contracts.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            for source in contract["sourceContracts"]:
+                if source["sourceId"] == "mysql-billing-payments":
+                    source.pop("sourceQualityRules")
+            contract_path.write_text(json.dumps(contract, indent=2), encoding="utf-8")
+
+            result = validate_contracts(root)
+
+        self.assertTrue(
+            any(
+                "mysql-billing-payments" in error
+                and "missing sourceQualityRules coverage" in error
+                for error in result.errors
+            )
+        )
+
+    def test_detects_missing_mongo_source_quality_rules(self) -> None:
+        with self._fixture_root() as root:
+            contract_path = root / "contracts" / "cdc-data-contracts.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            for source in contract["sourceContracts"]:
+                if source["sourceId"] == "mongo-engagement-support-tickets":
+                    source.pop("sourceQualityRules")
+            contract_path.write_text(json.dumps(contract, indent=2), encoding="utf-8")
+
+            result = validate_contracts(root)
+
+        self.assertTrue(
+            any(
+                "mongo-engagement-support-tickets" in error
+                and "missing sourceQualityRules coverage" in error
+                for error in result.errors
+            )
+        )
+
+    def test_detects_mysql_enum_constraint_mismatch(self) -> None:
+        with self._fixture_root() as root:
+            mysql_schema = root / "mysql" / "init.sql"
+            mysql_schema.write_text(
+                mysql_schema.read_text(encoding="utf-8").replace(
+                    "CHECK (payment_method IN ('card', 'wire', 'insurance'))",
+                    "CHECK (payment_method IN ('card', 'wire'))",
+                ),
+                encoding="utf-8",
+            )
+
+            result = validate_contracts(root)
+
+        self.assertTrue(
+            any(
+                "payment_method" in error and "expected" in error
+                for error in result.errors
+            )
+        )
+
+    def test_detects_mongo_validator_missing_required_field(self) -> None:
+        with self._fixture_root() as root:
+            mongo_schema = root / "mongo" / "init.js"
+            mongo_schema.write_text(
+                mongo_schema.read_text(encoding="utf-8").replace(
+                    '"ticket_id", "customer_id", "priority", "status", "opened_at"',
+                    '"customer_id", "priority", "status", "opened_at"',
+                ),
+                encoding="utf-8",
+            )
+
+            result = validate_contracts(root)
+
+        self.assertTrue(
+            any(
+                "ticket_id" in error and "required list" in error
+                for error in result.errors
+            )
+        )
+
     @contextmanager
     def _fixture_root(self) -> Iterator[Path]:
         root = Path(__file__).resolve().parents[2]
@@ -90,6 +168,8 @@ class ValidateContractsTest(unittest.TestCase):
 
             shutil.copytree(root / "contracts", fixture / "contracts")
             shutil.copytree(root / "connectors", fixture / "connectors")
+            shutil.copytree(root / "mysql", fixture / "mysql")
+            shutil.copytree(root / "mongo", fixture / "mongo")
             (fixture / "cassandra").mkdir()
             shutil.copy(
                 root / "cassandra" / "schema.cql",

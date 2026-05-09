@@ -56,6 +56,8 @@ The dashboard response includes data quality checks for query success, row count
 
 The anomaly harness injects bad source data and proves the pipeline rejects or quarantines it before Cassandra dashboards are trusted. Details are in `docs/v2/ANOMALY_TESTING.md`.
 
+Source-side contract hardening for MySQL and MongoDB is documented in `docs/v2/SOURCE_CONTRACT_HARDENING.md`; it explains what belongs in source constraints, transformer validation, and dashboard quality gates.
+
 ## Local Test Runbook
 
 Use these steps when you want to test the full local CDC flow and watch data arrive in the UI.
@@ -279,7 +281,7 @@ python tools/security_check.py
 python tools/validate_contracts.py
 ```
 
-CDC source and Cassandra serving-table contracts live in `contracts/cdc-data-contracts.json`. The governance rules and schema-change checklist are documented in `docs/v2/SCHEMA_GOVERNANCE.md`.
+CDC source and Cassandra serving-table contracts live in `contracts/cdc-data-contracts.json`. The governance rules, source quality coverage, and schema-change checklist are documented in `docs/v2/SCHEMA_GOVERNANCE.md` and `docs/v2/SOURCE_CONTRACT_HARDENING.md`.
 
 ## Generate Demo Data
 

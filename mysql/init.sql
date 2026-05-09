@@ -3,9 +3,10 @@ CREATE TABLE IF NOT EXISTS invoices (
   order_id VARCHAR(36) NOT NULL,
   customer_id VARCHAR(36) NOT NULL,
   invoice_status VARCHAR(32) NOT NULL,
-  amount_cents BIGINT NOT NULL,
+  amount_cents BIGINT NOT NULL CHECK (amount_cents >= 0),
   issued_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CHECK (invoice_status IN ('issued', 'paid', 'overdue'))
 );
 
 CREATE TABLE IF NOT EXISTS payments (
@@ -17,7 +18,10 @@ CREATE TABLE IF NOT EXISTS payments (
   payment_method VARCHAR(32) NOT NULL,
   amount_cents BIGINT NOT NULL,
   paid_at TIMESTAMP NULL,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CHECK (payment_status IN ('captured', 'failed', 'pending')),
+  CHECK (payment_method IN ('card', 'wire', 'insurance')),
+  CHECK (amount_cents >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS refunds (
@@ -26,7 +30,9 @@ CREATE TABLE IF NOT EXISTS refunds (
   refund_reason VARCHAR(255) NOT NULL,
   amount_cents BIGINT NOT NULL,
   refunded_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CHECK (refund_reason IN ('duplicate_charge', 'returned_goods', 'contract_adjustment')),
+  CHECK (amount_cents >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS debezium_signal (

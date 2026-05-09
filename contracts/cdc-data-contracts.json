@@ -207,6 +207,45 @@
         "payment_method",
         "amount_cents"
       ],
+      "sourceQualityRules": [
+        {
+          "field": "amount_cents",
+          "rule": "non_negative",
+          "enforcedBy": [
+            "mysql-check",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "payment_status",
+          "rule": "enum",
+          "allowedValues": [
+            "captured",
+            "failed",
+            "pending"
+          ],
+          "enforcedBy": [
+            "mysql-check",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "payment_method",
+          "rule": "enum",
+          "allowedValues": [
+            "card",
+            "wire",
+            "insurance"
+          ],
+          "enforcedBy": [
+            "mysql-check",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        }
+      ],
       "materialization": "fact",
       "targetTables": [
         "fact_payment_by_day"
@@ -233,6 +272,31 @@
         "payment_id",
         "refund_reason",
         "amount_cents"
+      ],
+      "sourceQualityRules": [
+        {
+          "field": "amount_cents",
+          "rule": "non_negative",
+          "enforcedBy": [
+            "mysql-check",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "refund_reason",
+          "rule": "enum",
+          "allowedValues": [
+            "duplicate_charge",
+            "returned_goods",
+            "contract_adjustment"
+          ],
+          "enforcedBy": [
+            "mysql-check",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        }
       ],
       "materialization": "fact",
       "targetTables": [
@@ -285,6 +349,67 @@
         "priority",
         "status",
         "opened_at"
+      ],
+      "sourceQualityRules": [
+        {
+          "field": "ticket_id",
+          "rule": "required",
+          "bsonType": "string",
+          "enforcedBy": [
+            "mongo-json-schema",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "customer_id",
+          "rule": "required",
+          "bsonType": "string",
+          "enforcedBy": [
+            "mongo-json-schema",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "priority",
+          "rule": "enum",
+          "allowedValues": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "enforcedBy": [
+            "mongo-json-schema",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "status",
+          "rule": "enum",
+          "allowedValues": [
+            "open",
+            "waiting_customer",
+            "resolved"
+          ],
+          "enforcedBy": [
+            "mongo-json-schema",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        },
+        {
+          "field": "opened_at",
+          "rule": "required",
+          "bsonType": "date",
+          "enforcedBy": [
+            "mongo-json-schema",
+            "transformer-validation",
+            "dashboard-quality"
+          ]
+        }
       ],
       "materialization": "fact",
       "targetTables": [

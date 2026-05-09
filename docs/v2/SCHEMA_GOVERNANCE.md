@@ -20,6 +20,7 @@ For every captured source table or collection, the contract declares:
 - Local and production topic prefixes.
 - Natural key fields.
 - Required `after` fields for insert/update/read events.
+- Source-side quality rules for enforced invariants such as non-negative amounts, required document fields, BSON date types, and enum domains.
 - Materialization status: `dimension`, `fact`, or `captured-only`.
 - Cassandra target tables, when materialized.
 - PII or confidential-data classification.
@@ -58,6 +59,9 @@ The validator checks that:
 - Every materialized target table has a target contract.
 - Every target contract exists in `cassandra/schema.cql`.
 - Required target columns and primary-key columns exist in Cassandra.
+- Required `sourceQualityRules` exist for quality-sensitive sources.
+- MySQL `sourceQualityRules` match `CHECK` constraints in `mysql/init.sql`.
+- Mongo `sourceQualityRules` match the strict `support_tickets` JSON schema in `mongo/init.js`.
 - Topic prefixes match the project naming contract.
 - Key fields are included in required source fields.
 
@@ -70,7 +74,10 @@ Use this checklist before changing a source schema, connector include list, tran
 - Additive nullable source field: update the contract if the field becomes part of the published CDC contract.
 - New materialized source table: add a source contract, transformer mapper, Cassandra target contract, and tests.
 - Captured but not materialized source table: add a `captured-only` source contract and explain the future consumer or retention reason.
+- New source invariant: add a database constraint or collection validator first, then add `sourceQualityRules`, transformer validation, and dashboard quality coverage as needed.
 - Field rename: treat as add-new plus deprecate-old; do not silently rename fields in place.
 - Type change: require compatibility review and replay testing.
 - Primary key change: require a new target-table strategy because Cassandra table keys are part of the serving API.
 - PII classification change: update `docs/v2/security-controls.json` and masking policy before deploy.
+
+Source hardening details and engine-specific guidance are documented in `docs/v2/SOURCE_CONTRACT_HARDENING.md`.

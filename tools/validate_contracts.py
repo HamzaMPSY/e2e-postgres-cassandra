@@ -23,11 +23,43 @@ VALID_COMPATIBILITY_MODES = {
     "FULL_TRANSITIVE",
 }
 VALID_OPERATIONS = {"c", "r", "u", "d"}
+VALID_SOURCE_QUALITY_RULES = {"non_negative", "enum", "required"}
 TOPIC_PREFIX = re.compile(r"^cdc\.(local|prod)\.omnicare\.(postgres|mysql|mongo|oracle)$")
 CREATE_TABLE = re.compile(
     r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+omnicare_dashboard\.([a-zA-Z0-9_]+)\s*\((.*?)\)\s*(?:WITH|;)",
     re.IGNORECASE | re.DOTALL,
 )
+MYSQL_CREATE_TABLE = re.compile(
+    r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([a-zA-Z0-9_]+)\s*\((.*?)\)\s*;",
+    re.IGNORECASE | re.DOTALL,
+)
+MYSQL_ENUM_CHECK = re.compile(
+    r"CHECK\s*\(\s*([a-zA-Z0-9_]+)\s+IN\s*\((.*?)\)\s*\)",
+    re.IGNORECASE | re.DOTALL,
+)
+MYSQL_NON_NEGATIVE_CHECK = re.compile(
+    r"CHECK\s*\(\s*([a-zA-Z0-9_]+)\s*>=\s*0\s*\)",
+    re.IGNORECASE,
+)
+
+REQUIRED_SOURCE_QUALITY_COVERAGE: dict[str, tuple[tuple[str, str], ...]] = {
+    "mysql-billing-payments": (
+        ("amount_cents", "non_negative"),
+        ("payment_status", "enum"),
+        ("payment_method", "enum"),
+    ),
+    "mysql-billing-refunds": (
+        ("amount_cents", "non_negative"),
+        ("refund_reason", "enum"),
+    ),
+    "mongo-engagement-support-tickets": (
+        ("ticket_id", "required"),
+        ("customer_id", "required"),
+        ("priority", "enum"),
+        ("status", "enum"),
+        ("opened_at", "required"),
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -72,6 +104,8 @@ def validate_contracts(root: Path) -> ValidationResult:
     mapper_tables = parse_transformer_mapper_tables(
         root / "transformer" / "src" / "omnicare_cdc" / "star_schema.py", errors
     )
+    mysql_constraints = parse_mysql_constraints(root / "mysql" / "init.sql", errors)
+    mongo_validator = parse_mongo_support_ticket_validator(root / "mongo" / "init.js", errors)
 
     target_names = validate_target_contracts(target_contracts, cassandra_tables, errors)
     validate_source_contracts(
@@ -79,6 +113,8 @@ def validate_contracts(root: Path) -> ValidationResult:
         target_names,
         connector_collections,
         mapper_tables,
+        mysql_constraints,
+        mongo_validator,
         errors,
         warnings,
     )
@@ -159,6 +195,8 @@ def validate_source_contracts(
     target_names: set[str],
     connector_collections: set[str],
     mapper_tables: set[str],
+    mysql_constraints: dict[str, dict[str, Any]],
+    mongo_validator: dict[str, Any],
     errors: list[str],
     warnings: list[str],
 ) -> None:
@@ -235,6 +273,15 @@ def validate_source_contracts(
         if not isinstance(pii_classification, list) or not pii_classification:
             errors.append(f"{context}: piiClassification must be a non-empty list")
 
+        validate_source_quality_rules(
+            raw_contract,
+            context,
+            required_after_fields,
+            mysql_constraints,
+            mongo_validator,
+            errors,
+        )
+
     missing_contracts = sorted(connector_collections - contracted_collections)
     for collection in missing_contracts:
         errors.append(f"{CONTRACT_PATH}: connector collection {collection!r} has no source contract")
@@ -274,6 +321,154 @@ def require_string_list(
             continue
         strings.append(item.strip())
     return strings
+
+
+def validate_source_quality_rules(
+    raw_contract: dict[str, Any],
+    context: str,
+    required_after_fields: list[str],
+    mysql_constraints: dict[str, dict[str, Any]],
+    mongo_validator: dict[str, Any],
+    errors: list[str],
+) -> None:
+    source_id = raw_contract.get("sourceId")
+    source_engine = raw_contract.get("sourceEngine")
+    data_collection = raw_contract.get("dataCollection")
+    required_coverage = REQUIRED_SOURCE_QUALITY_COVERAGE.get(str(source_id))
+    raw_rules = raw_contract.get("sourceQualityRules")
+
+    if required_coverage and not raw_rules:
+        expected = ", ".join(f"{field}:{rule}" for field, rule in required_coverage)
+        errors.append(
+            f"{context}: sourceId {source_id}: missing sourceQualityRules coverage for {expected}"
+        )
+        return
+    if raw_rules is None:
+        return
+    if not isinstance(raw_rules, list) or not raw_rules:
+        errors.append(f"{context}: sourceQualityRules must be a non-empty list when present")
+        return
+
+    normalized_rules: dict[tuple[str, str], dict[str, Any]] = {}
+    for rule_index, raw_rule in enumerate(raw_rules):
+        rule_context = f"{context}: sourceQualityRules[{rule_index}]"
+        if not isinstance(raw_rule, dict):
+            errors.append(f"{rule_context}: must be an object")
+            continue
+
+        field = require_string(raw_rule, "field", rule_context, errors)
+        rule = require_string(raw_rule, "rule", rule_context, errors)
+        if not field or not rule:
+            continue
+        if rule not in VALID_SOURCE_QUALITY_RULES:
+            errors.append(
+                f"{rule_context}: rule must be one of {sorted(VALID_SOURCE_QUALITY_RULES)}"
+            )
+            continue
+        if field not in required_after_fields:
+            errors.append(f"{rule_context}: field {field!r} must be listed in requiredAfterFields")
+
+        enforced_by = require_string_list(raw_rule, "enforcedBy", rule_context, errors)
+        normalized_rules[(field, rule)] = raw_rule
+
+        if rule == "enum" and not require_string_list(
+            raw_rule, "allowedValues", rule_context, errors
+        ):
+            continue
+        if rule == "required" and source_engine == "mongo":
+            bson_type = raw_rule.get("bsonType")
+            if bson_type not in {"string", "date"}:
+                errors.append(f"{rule_context}: mongo required rules must declare bsonType")
+
+        if source_engine == "mysql":
+            if "mysql-check" not in enforced_by:
+                errors.append(f"{rule_context}: MySQL source rules must include mysql-check")
+            validate_mysql_source_rule(
+                raw_rule,
+                str(data_collection or ""),
+                rule_context,
+                mysql_constraints,
+                errors,
+            )
+        elif source_engine == "mongo":
+            if "mongo-json-schema" not in enforced_by:
+                errors.append(f"{rule_context}: Mongo source rules must include mongo-json-schema")
+            validate_mongo_source_rule(raw_rule, rule_context, mongo_validator, errors)
+
+    for field, rule in required_coverage or ():
+        if (field, rule) not in normalized_rules:
+            errors.append(
+                f"{context}: sourceId {source_id}: missing sourceQualityRules entry for {field}:{rule}"
+            )
+
+
+def validate_mysql_source_rule(
+    raw_rule: dict[str, Any],
+    data_collection: str,
+    context: str,
+    mysql_constraints: dict[str, dict[str, Any]],
+    errors: list[str],
+) -> None:
+    table = data_collection.rsplit(".", 1)[-1].lower()
+    if not table:
+        return
+    table_constraints = mysql_constraints.get(table)
+    if table_constraints is None:
+        errors.append(f"{context}: missing MySQL DDL coverage for table {table!r}")
+        return
+
+    field = str(raw_rule.get("field"))
+    rule = str(raw_rule.get("rule"))
+    if rule == "non_negative":
+        if field not in table_constraints["non_negative"]:
+            errors.append(f"{context}: mysql/init.sql lacks CHECK ({field} >= 0)")
+    elif rule == "enum":
+        expected_values = set(require_string_list(raw_rule, "allowedValues", context, errors))
+        actual_values = table_constraints["enums"].get(field)
+        if actual_values is None:
+            errors.append(f"{context}: mysql/init.sql lacks CHECK ({field} IN (...))")
+        elif actual_values != expected_values:
+            errors.append(
+                f"{context}: mysql/init.sql enum for {field} is {sorted(actual_values)}, expected {sorted(expected_values)}"
+            )
+
+
+def validate_mongo_source_rule(
+    raw_rule: dict[str, Any],
+    context: str,
+    mongo_validator: dict[str, Any],
+    errors: list[str],
+) -> None:
+    if not mongo_validator:
+        return
+
+    field = str(raw_rule.get("field"))
+    rule = str(raw_rule.get("rule"))
+    required_fields: set[str] = mongo_validator.get("required", set())
+    properties: dict[str, dict[str, Any]] = mongo_validator.get("properties", {})
+    property_config = properties.get(field)
+    if property_config is None:
+        errors.append(f"{context}: mongo/init.js lacks JSON schema property for {field}")
+        return
+
+    if rule == "required":
+        if field not in required_fields:
+            errors.append(f"{context}: mongo/init.js required list does not include {field}")
+        expected_bson_type = raw_rule.get("bsonType")
+        actual_bson_type = property_config.get("bsonType")
+        if expected_bson_type and actual_bson_type != expected_bson_type:
+            errors.append(
+                f"{context}: mongo/init.js bsonType for {field} is {actual_bson_type!r}, expected {expected_bson_type!r}"
+            )
+    elif rule == "enum":
+        expected_values = set(require_string_list(raw_rule, "allowedValues", context, errors))
+        actual_values = property_config.get("enum")
+        if actual_values is None:
+            errors.append(f"{context}: mongo/init.js lacks enum for {field}")
+        elif actual_values != expected_values:
+            errors.append(
+                f"{context}: mongo/init.js enum for {field} is {sorted(actual_values)}, expected {sorted(expected_values)}"
+            )
 
 
 def connector_data_collections(root: Path, errors: list[str]) -> set[str]:
@@ -362,6 +557,77 @@ def parse_transformer_mapper_tables(path: Path, errors: list[str]) -> set[str]:
 
     errors.append(f"{path}: missing _MAPPERS contract")
     return set()
+
+
+def parse_mysql_constraints(path: Path, errors: list[str]) -> dict[str, dict[str, Any]]:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        errors.append(f"Missing MySQL source schema: {path}")
+        return {}
+
+    tables: dict[str, dict[str, Any]] = {}
+    for match in MYSQL_CREATE_TABLE.finditer(content):
+        table = match.group(1).lower()
+        body = match.group(2)
+        non_negative = {
+            check.group(1).lower() for check in MYSQL_NON_NEGATIVE_CHECK.finditer(body)
+        }
+        enums: dict[str, set[str]] = {}
+        for enum_check in MYSQL_ENUM_CHECK.finditer(body):
+            field = enum_check.group(1).lower()
+            values = set(quoted_values(enum_check.group(2)))
+            enums[field] = values
+        tables[table] = {"non_negative": non_negative, "enums": enums}
+    return tables
+
+
+def parse_mongo_support_ticket_validator(path: Path, errors: list[str]) -> dict[str, Any]:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        errors.append(f"Missing Mongo source schema: {path}")
+        return {}
+
+    if "supportTicketValidator" not in content:
+        errors.append(f"{path}: missing supportTicketValidator")
+        return {}
+    if 'collMod: "support_tickets"' not in content and "collMod: 'support_tickets'" not in content:
+        errors.append(f"{path}: support_tickets validator must be applied with collMod")
+    if 'validationLevel: "strict"' not in content or 'validationAction: "error"' not in content:
+        errors.append(f"{path}: support_tickets validator must use strict/error validation")
+
+    required = set()
+    required_match = re.search(r"required\s*:\s*(\[[^\]]*\])", content, re.DOTALL)
+    if required_match:
+        required = set(quoted_values(required_match.group(1)))
+    else:
+        errors.append(f"{path}: supportTicketValidator is missing required fields")
+
+    properties: dict[str, dict[str, Any]] = {}
+    for field in ("ticket_id", "customer_id", "priority", "status", "opened_at"):
+        property_match = re.search(
+            rf"\b{re.escape(field)}\s*:\s*\{{(.*?)\}}",
+            content,
+            re.DOTALL,
+        )
+        if not property_match:
+            continue
+        body = property_match.group(1)
+        property_config: dict[str, Any] = {}
+        bson_match = re.search(r"bsonType\s*:\s*\"([^\"]+)\"", body)
+        if bson_match:
+            property_config["bsonType"] = bson_match.group(1)
+        enum_match = re.search(r"enum\s*:\s*(\[[^\]]*\])", body, re.DOTALL)
+        if enum_match:
+            property_config["enum"] = set(quoted_values(enum_match.group(1)))
+        properties[field] = property_config
+
+    return {"required": required, "properties": properties}
+
+
+def quoted_values(value: str) -> list[str]:
+    return re.findall(r"['\"]([^'\"]+)['\"]", value)
 
 
 def normalize_collection(value: str) -> str:

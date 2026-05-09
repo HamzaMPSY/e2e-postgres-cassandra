@@ -125,6 +125,8 @@ services:
     container_name: omnicare-mongo-setup
     depends_on:
       - mongo-engagement
+    volumes:
+      - ./mongo/init.js:/opt/omnicare/mongo-init.js:ro
     command:
       - bash
       - -lc
@@ -140,14 +142,7 @@ services:
           sleep 2
         done
         for attempt in {1..30}; do
-          mongosh "mongodb://mongo-engagement:27017/engagement?replicaSet=rs0" --eval '
-            db.createCollection("support_tickets");
-            db.support_tickets.createIndex({ ticket_id: 1 }, { unique: true });
-            db.support_tickets.createIndex({ customer_id: 1, opened_at: -1 });
-            db.createCollection("customer_events");
-            db.customer_events.createIndex({ event_id: 1 }, { unique: true });
-            db.customer_events.createIndex({ customer_id: 1, event_ts: -1 });
-          ' && exit 0
+          mongosh "mongodb://mongo-engagement:27017/engagement?replicaSet=rs0" /opt/omnicare/mongo-init.js && exit 0
           sleep 2
         done
         exit 1
