@@ -29,6 +29,8 @@ Validated in local Podman:
 Known current issues:
 
 - Dashboard service is built and healthy, but needs one final replay validation after the root promotion.
+- Dashboard API returned live revenue, payment, support, and order-to-cash data after root promotion.
+- Config validation CLI passes for active local connectors and warns that Oracle is template-only.
 - Superset dashboard import is not built; the custom UI is now the default demo dashboard.
 - Oracle remains a connector/schema template only; it is intentionally not part of the default laptop E2E run.
 - Inventory facts need an active Oracle or replacement inventory generator to become visible.
@@ -235,7 +237,7 @@ Acceptance criteria:
 - [x] Dashboard SQL exists for revenue, payment health, stock movement, SLA, and order-to-cash.
 - [x] Lightweight dashboard service exists under `dashboard`.
 - [x] Dashboard container is wired into Compose on port `18090`.
-- [ ] Re-run dashboard data validation after root promotion.
+- [x] Re-run dashboard data validation after root promotion.
 - [ ] Superset import bundle or documented setup exists as optional BI path.
 
 ## P2 - Production Hardening
@@ -261,7 +263,7 @@ Acceptance criteria:
 
 Priority: P2
 
-Status: Not started
+Status: Initial implementation done
 
 Scope:
 
@@ -272,8 +274,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] CI can run validation without starting Docker.
-- [ ] Bad config fails fast with actionable errors.
+- [x] CI can run validation without starting Docker.
+- [x] Bad config fails fast with actionable errors.
+- [x] Required env vars, connector JSON shape, topic prefixes, placeholders, and active source coverage are checked.
+- [ ] Add CI workflow to run the validator automatically on push.
 
 ### CDCV2-012: Add cloud deployment templates
 

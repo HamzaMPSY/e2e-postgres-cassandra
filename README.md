@@ -92,6 +92,12 @@ ENV_FILE=.env scripts/register-connectors.sh
 
 In production, prefer Kafka Connect config providers or a platform secrets integration instead of rendering secrets into JSON files.
 
+Validate connector templates and required environment variables without starting containers:
+
+```bash
+python tools/validate_config.py
+```
+
 ## Generate Demo Data
 
 Install and run the generator:
@@ -123,6 +129,11 @@ Validated locally on 2026-05-08:
 - Transformer replayed `47` CDC messages into a fresh Cassandra keyspace.
 - Cassandra contained `14` order-line facts, `7` payment facts, and `12` support-case facts.
 - Trino queried Cassandra successfully; revenue-by-day returned `2026-05-08`, `14` order lines, and `6079.8` gross revenue.
+
+Validated after root promotion on 2026-05-09:
+
+- Dashboard API returned live revenue, payment, support, and order-to-cash data.
+- Config validation passed with an explicit Oracle template warning.
 
 ## Dashboard UI
 
