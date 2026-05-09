@@ -42,6 +42,14 @@ Oracle is optional:
 podman compose --env-file .env -f docker-compose.yaml --profile oracle up -d
 ```
 
+For a guided local end-to-end demo, run:
+
+```bash
+scripts/demo-e2e.sh --max-events 25 --rate-per-second 5
+```
+
+The harness starts the stack, registers connectors, generates source data, runs a bounded transformer smoke pass, verifies Cassandra and dashboard data, and writes `artifacts/demo-report.json`. Details are in `docs/v2/DEMO_HARNESS.md`.
+
 ## First Build Slice
 
 This initial V2 slice includes:

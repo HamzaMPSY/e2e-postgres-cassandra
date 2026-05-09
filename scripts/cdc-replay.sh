@@ -104,7 +104,10 @@ if [[ "$all_active" == true ]]; then
   topics=(
     "cdc.local.omnicare.postgres.public.customers"
     "cdc.local.omnicare.postgres.public.order_items"
+    "cdc.local.omnicare.postgres.public.products"
+    "cdc.local.omnicare.postgres.public.stock_movements"
     "cdc.local.omnicare.mysql.billing.payments"
+    "cdc.local.omnicare.mysql.billing.refunds"
     "cdc.local.omnicare.mongo.engagement.support_tickets"
   )
 fi

@@ -49,6 +49,9 @@ jobs:
       - name: Run config validator tests
         run: PYTHONPATH=tools python -m unittest discover -s tools/tests
 
+      - name: Validate shell scripts
+        run: bash -n scripts/cdc-replay.sh scripts/request-resnapshot.sh scripts/connect-connector.sh scripts/register-connectors.sh scripts/demo-e2e.sh
+
       - name: Validate Grafana dashboard JSON
         run: python -m json.tool observability/grafana/dashboards/omnicare-cdc.json >/dev/null
 
