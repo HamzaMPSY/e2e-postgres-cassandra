@@ -15,6 +15,17 @@ INVENTORY_MOVEMENT_TYPES = {"receipt", "shipment", "adjustment_in", "adjustment_
 SUPPORT_PRIORITIES = {"low", "medium", "high", "critical"}
 SUPPORT_STATUSES = {"open", "waiting_customer", "resolved"}
 COMMON_VALUES = ("source_topic", "source_position", "event_ts")
+PRODUCT_VALUES = ("sku", "product_name", "product_category", "supplier_id")
+ORDER_LINE_VALUES = COMMON_VALUES + (
+    "order_id", "order_item_id", "customer_id", "product_id", "channel",
+    "quantity", "unit_price_cents", "gross_amount_cents", "order_status",
+)
+PAYMENT_VALUES = COMMON_VALUES + (
+    "payment_id", "invoice_id", "order_id", "customer_id",
+    "payment_status", "payment_method", "amount_cents",
+)
+REFUND_VALUES = COMMON_VALUES + ("refund_id", "payment_id", "refund_reason", "amount_cents")
+INVENTORY_VALUES = COMMON_VALUES + ("movement_id", "warehouse_id", "movement_type", "quantity")
 
 
 @dataclass(frozen=True)
@@ -31,6 +42,13 @@ class ValidationIssue:
             "field": self.field,
             "message": self.message,
         }
+
+
+@dataclass(frozen=True)
+class BusinessRules:
+    max_payment_amount_cents: int = 10_000_000
+    payment_overpay_tolerance_cents: int = 0
+    reference_validation_mode: str = "deferred"
 
 
 class RowValidationError(ValueError):
@@ -70,67 +88,30 @@ RULES = {
     ),
     "dim_product_by_id": TableRule(
         key_required=("product_id",),
-        value_required_when_active=(
-            "sku",
-            "product_name",
-            "product_category",
-            "supplier_id",
-        ),
+        value_required_when_active=PRODUCT_VALUES,
     ),
     "fact_order_line_by_day": TableRule(
         key_required=("order_day", "fact_id"),
-        value_required=(
-            *COMMON_VALUES,
-            "order_id",
-            "order_item_id",
-            "customer_id",
-            "product_id",
-            "channel",
-            "quantity",
-            "unit_price_cents",
-            "gross_amount_cents",
-            "order_status",
-        ),
+        value_required=ORDER_LINE_VALUES,
         positive=("quantity",),
         non_negative=("unit_price_cents", "gross_amount_cents"),
         enums={"order_status": ORDER_STATUSES, "channel": ORDER_CHANNELS},
     ),
     "fact_payment_by_day": TableRule(
         key_required=("payment_day", "fact_id"),
-        value_required=(
-            *COMMON_VALUES,
-            "payment_id",
-            "invoice_id",
-            "order_id",
-            "customer_id",
-            "payment_status",
-            "payment_method",
-            "amount_cents",
-        ),
+        value_required=PAYMENT_VALUES,
         non_negative=("amount_cents",),
         enums={"payment_status": PAYMENT_STATUSES, "payment_method": PAYMENT_METHODS},
     ),
     "fact_refund_by_day": TableRule(
         key_required=("refund_day", "fact_id"),
-        value_required=(
-            *COMMON_VALUES,
-            "refund_id",
-            "payment_id",
-            "refund_reason",
-            "amount_cents",
-        ),
+        value_required=REFUND_VALUES,
         non_negative=("amount_cents",),
         enums={"refund_reason": REFUND_REASONS},
     ),
     "fact_inventory_movement_by_product": TableRule(
         key_required=("product_id", "movement_ts", "fact_id"),
-        value_required=(
-            *COMMON_VALUES,
-            "movement_id",
-            "warehouse_id",
-            "movement_type",
-            "quantity",
-        ),
+        value_required=INVENTORY_VALUES,
         positive=("quantity",),
         enums={"movement_type": INVENTORY_MOVEMENT_TYPES},
     ),
@@ -142,8 +123,13 @@ RULES = {
 }
 
 
-def validate_star_rows(rows: list[StarRow]) -> list[StarRow]:
+def validate_star_rows(
+    rows: list[StarRow],
+    rules: BusinessRules | None = None,
+) -> list[StarRow]:
+    rules = rules or BusinessRules()
     issues = [issue for row in rows for issue in _validate_row(row)]
+    issues.extend(_validate_business_caps(rows, rules))
     if issues:
         raise RowValidationError(issues)
     return rows
@@ -213,6 +199,29 @@ def _enum(row: StarRow, field_name: str, allowed: set[str]) -> list[ValidationIs
 
 def _issue(row: StarRow, field_name: str, code: str, message: str) -> ValidationIssue:
     return ValidationIssue(code, row.table, field_name, message)
+
+
+def _validate_business_caps(
+    rows: list[StarRow],
+    rules: BusinessRules,
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    for row in rows:
+        if row.table != "fact_payment_by_day":
+            continue
+        amount = _int_or_none(row.values.get("amount_cents"))
+        if amount is None:
+            continue
+        if amount > rules.max_payment_amount_cents:
+            issues.append(
+                _issue(
+                    row,
+                    "amount_cents",
+                    "payment_amount_exceeds_configured_max",
+                    "payment amount exceeds MAX_PAYMENT_AMOUNT_CENTS",
+                )
+            )
+    return issues
 
 
 def _int_or_none(value: object) -> int | None:

@@ -6,9 +6,10 @@ from typing import Any
 
 from .cassandra_writer import CassandraStarWriter
 from .dlq import DlqProducer, FailedRecord
+from .guardrails import BusinessGuardrails
 from .metrics import MetricsRegistry
 from .star_schema import to_star_rows
-from .validation import RowValidationError, validate_star_rows
+from .validation import BusinessRules, RowValidationError, validate_star_rows
 
 
 LOGGER = logging.getLogger(__name__)
@@ -21,20 +22,29 @@ class TransformerService:
         writer: CassandraStarWriter,
         dlq: DlqProducer,
         metrics: MetricsRegistry | None = None,
+        business_rules: BusinessRules | None = None,
+        guardrails: BusinessGuardrails | None = None,
     ):
         self._consumer = consumer
         self._writer = writer
         self._dlq = dlq
         self._metrics = metrics
+        self._business_rules = business_rules or BusinessRules()
+        self._guardrails = guardrails or BusinessGuardrails(self._business_rules)
 
     def process_message(self, message: Any) -> int:
         try:
-            rows = validate_star_rows(to_star_rows(message.topic(), message.value()))
+            rows = validate_star_rows(
+                to_star_rows(message.topic(), message.value()),
+                rules=self._business_rules,
+            )
+            rows = self._guardrails.validate(rows)
             write_started_at = time.perf_counter()
             try:
                 written = self._writer.write_rows(rows)
             finally:
                 self._observe_write_latency(time.perf_counter() - write_started_at)
+            self._guardrails.observe(rows)
             self._consumer.commit(message=message, asynchronous=False)
             self._record_success(written)
             LOGGER.info(

@@ -40,6 +40,9 @@ class AppConfig:
     metrics_enabled: bool
     metrics_host: str
     metrics_port: int
+    max_payment_amount_cents: int
+    payment_overpay_tolerance_cents: int
+    reference_validation_mode: str
 
     @classmethod
     def from_env(cls) -> AppConfig:
@@ -65,6 +68,15 @@ class AppConfig:
             metrics_enabled=_bool("TRANSFORMER_METRICS_ENABLED", True),
             metrics_host=_env("TRANSFORMER_METRICS_HOST", "0.0.0.0"),
             metrics_port=int(_env("TRANSFORMER_METRICS_PORT", "8090")),
+            max_payment_amount_cents=_non_negative_int(
+                "MAX_PAYMENT_AMOUNT_CENTS",
+                10_000_000,
+            ),
+            payment_overpay_tolerance_cents=_non_negative_int(
+                "PAYMENT_OVERPAY_TOLERANCE_CENTS",
+                0,
+            ),
+            reference_validation_mode=_reference_validation_mode(),
         )
 
     def kafka_security_config(self) -> dict[str, str]:
@@ -94,3 +106,21 @@ def _bool(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _non_negative_int(name: str, default: int) -> int:
+    raw = _env(name, str(default))
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return value
+
+
+def _reference_validation_mode() -> str:
+    value = _env("REFERENCE_VALIDATION_MODE", "deferred")
+    if value not in {"deferred", "strict"}:
+        raise ValueError("REFERENCE_VALIDATION_MODE must be deferred or strict")
+    return value

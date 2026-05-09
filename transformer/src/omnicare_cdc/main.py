@@ -6,8 +6,10 @@ import argparse
 from .cassandra_writer import connect_cassandra
 from .config import AppConfig
 from .dlq import connect_dlq_producer
+from .guardrails import BusinessGuardrails
 from .metrics import MetricsRegistry, start_metrics_server
 from .service import TransformerService
+from .validation import BusinessRules
 
 
 def main() -> None:
@@ -57,7 +59,19 @@ def main() -> None:
         include_payloads=config.dlq_include_payloads,
     )
     consumer.subscribe(list(config.source_topics))
-    service = TransformerService(consumer=consumer, writer=writer, dlq=dlq, metrics=metrics)
+    rules = BusinessRules(
+        max_payment_amount_cents=config.max_payment_amount_cents,
+        payment_overpay_tolerance_cents=config.payment_overpay_tolerance_cents,
+        reference_validation_mode=config.reference_validation_mode,
+    )
+    service = TransformerService(
+        consumer=consumer,
+        writer=writer,
+        dlq=dlq,
+        metrics=metrics,
+        business_rules=rules,
+        guardrails=BusinessGuardrails(rules),
+    )
     if args.max_messages > 0:
         processed = service.run_until(
             max_messages=args.max_messages,

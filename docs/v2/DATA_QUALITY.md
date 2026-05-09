@@ -67,6 +67,20 @@ omnicare_data_quality_check_passed{check="...",status="..."}
 
 Prometheus alert rules fail fast on `overallStatus=fail` and warn on sustained `overallStatus=warn`.
 
+## Transformer Guardrails
+
+The transformer rejects invalid star rows before Cassandra writes. Financial guardrails are config-driven:
+
+```text
+MAX_PAYMENT_AMOUNT_CENTS=10000000
+PAYMENT_OVERPAY_TOLERANCE_CENTS=0
+REFERENCE_VALIDATION_MODE=deferred
+```
+
+- `MAX_PAYMENT_AMOUNT_CENTS` quarantines impossible captured payment amounts before they pollute serving tables.
+- `PAYMENT_OVERPAY_TOLERANCE_CENTS` is used when a matching order total has already been observed in the transformer process.
+- `REFERENCE_VALIDATION_MODE=deferred` avoids false rejects when MySQL payment CDC arrives before Postgres order CDC. Use `strict` only when the deployment guarantees order/customer facts are available before payments or has a warm reference cache.
+
 ## Production Notes
 
 These gates are intentionally deterministic and dashboard-focused. In a real production rollout, add source-specific controls too:
