@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "status": "production-hardening-contract",
+  "secret_policy": {
+    "git_policy": "Only placeholders, environment variable references, and secret-manager references may be committed.",
+    "local_placeholder_prefixes": ["change_me_"],
+    "production_secret_managers": {
+      "aws": "AWS Secrets Manager with IAM task/pod roles",
+      "gcp": "Secret Manager with workload identity",
+      "datacenter": "HashiCorp Vault or an enterprise secret manager"
+    }
+  },
+  "transport_policy": {
+    "database_tls_required": true,
+    "kafka_tls_required": true,
+    "schema_registry_tls_required": true,
+    "cassandra_tls_required": true,
+    "dashboard_tls_termination": "ingress-or-load-balancer"
+  },
+  "connectors": {
+    "postgres-orders-local": {
+      "source": "PostgreSQL orders application database",
+      "production_source_user": "orders_cdc_prod",
+      "secret_refs": [
+        "cdc/prod/postgres/orders/username",
+        "cdc/prod/postgres/orders/password",
+        "cdc/prod/postgres/orders/ca_bundle"
+      ],
+      "least_privilege_grants": [
+        "LOGIN",
+        "REPLICATION",
+        "CONNECT ON DATABASE orders",
+        "USAGE ON SCHEMA public",
+        "SELECT ON public.customers",
+        "SELECT ON public.orders",
+        "SELECT ON public.order_items",
+        "SELECT,INSERT,UPDATE,DELETE ON public.debezium_signal"
+      ],
+      "kafka_principal": "User:cdc-postgres-orders",
+      "kafka_acls": [
+        "WRITE,CREATE,DESCRIBE on PREFIXED topic cdc.prod.omnicare.postgres.",
+        "READ,WRITE,DESCRIBE on topic cdc.prod.omnicare.signals",
+        "READ on group omnicare-postgres-signals"
+      ],
+      "pii_fields": [
+        {
+          "field": "public.customers.hospital_name",
+          "classification": "business-confidential",
+          "target_policy": "allow",
+          "masking_rule": "not displayed as personal data; aggregate in public dashboards"
+        },
+        {
+          "field": "public.customers.city",
+          "classification": "location",
+          "target_policy": "allow",
+          "masking_rule": "city-level only; no street address captured"
+        }
+      ]
+    },
+    "mysql-billing-local": {
+      "source": "MySQL billing application database",
+      "production_source_user": "billing_cdc_prod",
+      "secret_refs": [
+        "cdc/prod/mysql/billing/username",
+        "cdc/prod/mysql/billing/password",
+        "cdc/prod/mysql/billing/ca_bundle"
+      ],
+      "least_privilege_grants": [
+        "SELECT ON billing.invoices",
+        "SELECT ON billing.payments",
+        "SELECT ON billing.refunds",
+        "SELECT,INSERT,UPDATE,DELETE ON billing.debezium_signal",
+        "REPLICATION SLAVE",
+        "REPLICATION CLIENT",
+        "SHOW DATABASES"
+      ],
+      "kafka_principal": "User:cdc-mysql-billing",
+      "kafka_acls": [
+        "WRITE,CREATE,DESCRIBE on PREFIXED topic cdc.prod.omnicare.mysql.",
+        "WRITE,DESCRIBE on topic schema-history.prod.omnicare.mysql.billing",
+        "READ,WRITE,DESCRIBE on topic cdc.prod.omnicare.signals",
+        "READ on group omnicare-mysql-signals"
+      ],
+      "pii_fields": [
+        {
+          "field": "billing.invoices.customer_id",
+          "classification": "pseudonymous-identifier",
+          "target_policy": "hash-or-tokenize-outside-demo",
+          "masking_rule": "do not expose raw ID to broad BI audiences"
+        },
+        {
+          "field": "billing.payments.customer_id",
+          "classification": "pseudonymous-identifier",
+          "target_policy": "hash-or-tokenize-outside-demo",
+          "masking_rule": "do not expose raw ID to broad BI audiences"
+        },
+        {
+          "field": "billing.payments.payment_method",
+          "classification": "payment-sensitive",
+          "target_policy": "allow-category-only",
+          "masking_rule": "store method category only; never collect PAN, CVV, or account numbers"
+        }
+      ]
+    },
+    "mongo-engagement-local": {
+      "source": "MongoDB engagement application database",
+      "production_source_user": "engagement_cdc_prod",
+      "secret_refs": [
+        "cdc/prod/mongo/engagement/username",
+        "cdc/prod/mongo/engagement/password",
+        "cdc/prod/mongo/engagement/ca_bundle"
+      ],
+      "least_privilege_grants": [
+        "find on engagement.support_tickets",
+        "find on engagement.customer_events",
+        "find,insert,update,remove on engagement.debezium_signal",
+        "changeStream on engagement",
+        "read on local.oplog.rs"
+      ],
+      "kafka_principal": "User:cdc-mongo-engagement",
+      "kafka_acls": [
+        "WRITE,CREATE,DESCRIBE on PREFIXED topic cdc.prod.omnicare.mongo.",
+        "READ,WRITE,DESCRIBE on topic cdc.prod.omnicare.signals",
+        "READ on group omnicare-mongo-signals"
+      ],
+      "pii_fields": [
+        {
+          "field": "engagement.support_tickets.customer_id",
+          "classification": "pseudonymous-identifier",
+          "target_policy": "hash-or-tokenize-outside-demo",
+          "masking_rule": "do not expose raw ID to broad BI audiences"
+        },
+        {
+          "field": "engagement.support_tickets.severity",
+          "classification": "operational-sensitive",
+          "target_policy": "allow",
+          "masking_rule": "aggregate for executive dashboards"
+        },
+        {
+          "field": "engagement.customer_events.customer_id",
+          "classification": "pseudonymous-identifier",
+          "target_policy": "hash-or-tokenize-outside-demo",
+          "masking_rule": "do not expose raw ID to broad BI audiences"
+        }
+      ]
+    },
+    "oracle-erp-local": {
+      "source": "Oracle ERP application database",
+      "production_source_user": "ERP_CDC_PROD",
+      "secret_refs": [
+        "cdc/prod/oracle/erp/username",
+        "cdc/prod/oracle/erp/password",
+        "cdc/prod/oracle/erp/wallet"
+      ],
+      "least_privilege_grants": [
+        "CREATE SESSION",
+        "SELECT ON ERP_APP.PRODUCTS",
+        "SELECT ON ERP_APP.SUPPLIERS",
+        "SELECT ON ERP_APP.STOCK_MOVEMENTS",
+        "SELECT,INSERT,UPDATE,DELETE ON ERP_APP.DEBEZIUM_SIGNAL",
+        "LogMiner dictionary and redo access through an approved CDC role"
+      ],
+      "kafka_principal": "User:cdc-oracle-erp",
+      "kafka_acls": [
+        "WRITE,CREATE,DESCRIBE on PREFIXED topic cdc.prod.omnicare.oracle.",
+        "READ,WRITE,DESCRIBE on topic cdc.prod.omnicare.signals",
+        "READ on group omnicare-oracle-signals"
+      ],
+      "pii_fields": [
+        {
+          "field": "ERP_APP.SUPPLIERS.supplier_name",
+          "classification": "business-confidential",
+          "target_policy": "allow",
+          "masking_rule": "vendor names visible only to authorized supply-chain dashboards"
+        },
+        {
+          "field": "ERP_APP.SUPPLIERS.country",
+          "classification": "location",
+          "target_policy": "allow",
+          "masking_rule": "country-level only"
+        }
+      ]
+    }
+  },
+  "sink_controls": {
+    "cassandra": {
+      "tls_required": true,
+      "auth_required": true,
+      "least_privilege_role": "omnicare_dashboard_writer",
+      "allowed_permissions": [
+        "MODIFY on keyspace omnicare_dashboard",
+        "SELECT on keyspace omnicare_dashboard for dashboard readers"
+      ]
+    },
+    "dashboard": {
+      "auth_required": true,
+      "row_level_policy": "separate broad executive aggregates from operator drill-down views",
+      "pii_display_policy": "do not display raw pseudonymous identifiers unless a dashboard role explicitly requires them"
+    }
+  }
+}

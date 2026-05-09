@@ -230,12 +230,21 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_GROUP_ID: omnicare-cdc-transformer
+      KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-}
+      KAFKA_SSL_CA_LOCATION: ${KAFKA_SSL_CA_LOCATION:-}
       CDC_SOURCE_TOPICS: cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mongo.engagement.support_tickets
       DLQ_TOPIC: dlq.local.omnicare.transformer
+      DLQ_INCLUDE_PAYLOADS: "false"
       CASSANDRA_CONTACT_POINTS: cassandra
       CASSANDRA_KEYSPACE: omnicare_dashboard
       CASSANDRA_LOCAL_DC: datacenter1
       CASSANDRA_PROTOCOL_VERSION: 5
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME:-}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD:-}
+      CASSANDRA_SSL_CA_CERT: ${CASSANDRA_SSL_CA_CERT:-}
       TRANSFORMER_METRICS_ENABLED: "true"
       TRANSFORMER_METRICS_HOST: 0.0.0.0
       TRANSFORMER_METRICS_PORT: 8090
@@ -281,7 +290,7 @@ services:
       - "13000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro

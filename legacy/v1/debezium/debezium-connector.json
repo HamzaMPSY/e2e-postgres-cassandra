@@ -5,9 +5,9 @@
         "plugin.name": "pgoutput",
         "database.hostname": "postgres_db",
         "database.port": "5432",
-        "database.user": "postgres",
-        "database.password": "nidal",
-        "database.dbname": "postgres",
+        "database.user": "${LEGACY_POSTGRES_USER}",
+        "database.password": "${LEGACY_POSTGRES_PASSWORD}",
+        "database.dbname": "${LEGACY_POSTGRES_DB}",
         "database.server.name": "postgres_db",
         "topic.prefix": "debezium",
         "table.include.list": "public.his_devices,public.his_drugs,public.his_medicals,public.his_blabla"

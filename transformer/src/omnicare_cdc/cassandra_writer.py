@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import ssl
 from collections.abc import Iterable
 from typing import Any
 
@@ -55,19 +56,36 @@ def connect_cassandra(
     keyspace: str,
     local_dc: str,
     protocol_version: int,
+    username: str = "",
+    password: str = "",
+    ssl_ca_cert: str = "",
 ) -> CassandraStarWriter:
     try:
         from cassandra.cluster import Cluster
+        from cassandra.auth import PlainTextAuthProvider
         from cassandra.policies import DCAwareRoundRobinPolicy
     except ImportError as exc:
         raise RuntimeError(
             "cassandra-driver is required to run the transformer service"
         ) from exc
 
+    cluster_options: dict[str, Any] = {
+        "contact_points": list(contact_points),
+        "load_balancing_policy": DCAwareRoundRobinPolicy(local_dc=local_dc),
+        "protocol_version": protocol_version,
+    }
+    if username or password:
+        if not username or not password:
+            raise ValueError("Both Cassandra username and password are required for auth")
+        cluster_options["auth_provider"] = PlainTextAuthProvider(
+            username=username,
+            password=password,
+        )
+    if ssl_ca_cert:
+        cluster_options["ssl_context"] = ssl.create_default_context(cafile=ssl_ca_cert)
+
     cluster = Cluster(
-        contact_points=list(contact_points),
-        load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=local_dc),
-        protocol_version=protocol_version,
+        **cluster_options,
     )
     session = cluster.connect()
     return CassandraStarWriter(session=session, keyspace=keyspace)

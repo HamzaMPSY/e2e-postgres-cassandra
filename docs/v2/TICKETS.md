@@ -333,7 +333,7 @@ Acceptance criteria:
 
 Priority: P2
 
-Status: Not started
+Status: Done
 
 Scope:
 
@@ -344,9 +344,13 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] No secrets are committed.
-- [ ] Every connector has a least-privilege source user plan.
-- [ ] PII fields are explicitly documented.
+- [x] `docs/v2/SECURITY_HARDENING.md` defines TLS, Kafka ACL, secrets manager, source least-privilege, DLQ, and audit controls.
+- [x] `docs/v2/security-controls.json` provides a machine-readable security contract for every connector.
+- [x] `tools/security_check.py` rejects literal committed secrets and validates the security control catalog.
+- [x] Transformer runtime config supports Kafka TLS/SASL and Cassandra auth/TLS.
+- [x] DLQ publishing redacts failed record key/value payloads by default.
+- [x] Legacy V1 hard-coded credentials are externalized to environment placeholders.
+- [x] PII fields are explicitly documented with classification and masking rules.
 
 ### CDCV2-015: Add production MongoDB authentication
 
@@ -365,10 +369,27 @@ Acceptance criteria:
 - [x] Local no-auth Mongo mode is clearly separated from production mode through this explicit hardening ticket.
 - [ ] Production MongoDB connector uses least-privilege credentials from a secret provider.
 
+### CDCV2-016: Add production connector templates
+
+Priority: P2
+
+Status: Not started
+
+Scope:
+
+- Add production connector templates or overlays that consume `docs/v2/security-controls.json`.
+- Include TLS, Kafka client security, config provider references, and safe connector logging defaults.
+
+Acceptance criteria:
+
+- [ ] Production connector templates do not render secrets into JSON.
+- [ ] Production connector templates require TLS for source and Kafka connections.
+- [ ] `tools/security_check.py` validates the production template set.
+
 ## Recommended Next Tickets
 
-1. `CDCV2-014`: add production security hardening: TLS, Kafka ACLs, secrets manager, source least privilege, and PII classification.
-2. `CDCV2-012`: add AWS/GCP/datacenter deployment templates.
-3. `CDCV2-008B`: add long-running generator controls for rate, skew, and failure scenarios.
-4. `CDCV2-002`: replace weak local health status with stronger service healthchecks where images support it.
-5. `CDCV2-015`: add production MongoDB authentication.
+1. `CDCV2-012`: add AWS/GCP/datacenter deployment templates.
+2. `CDCV2-008B`: add long-running generator controls for rate, skew, and failure scenarios.
+3. `CDCV2-002`: replace weak local health status with stronger service healthchecks where images support it.
+4. `CDCV2-015`: add production MongoDB authentication.
+5. `CDCV2-016`: add production connector templates using the security control catalog.

@@ -46,10 +46,15 @@ def main() -> None:
         keyspace=config.cassandra_keyspace,
         local_dc=config.cassandra_local_dc,
         protocol_version=config.cassandra_protocol_version,
+        username=config.cassandra_username,
+        password=config.cassandra_password,
+        ssl_ca_cert=config.cassandra_ssl_ca_cert,
     )
     dlq = connect_dlq_producer(
         bootstrap_servers=config.kafka_bootstrap_servers,
         topic=config.dlq_topic,
+        security_config=config.kafka_security_config(),
+        include_payloads=config.dlq_include_payloads,
     )
     consumer.subscribe(list(config.source_topics))
     service = TransformerService(consumer=consumer, writer=writer, dlq=dlq, metrics=metrics)
@@ -71,15 +76,19 @@ def _connect_consumer(config: AppConfig):
     except ImportError as exc:
         raise RuntimeError("confluent-kafka is required to run the transformer") from exc
 
-    return Consumer(
-        {
-            "bootstrap.servers": config.kafka_bootstrap_servers,
-            "group.id": config.kafka_group_id,
-            "enable.auto.commit": False,
-            "auto.offset.reset": "earliest",
-            "isolation.level": "read_committed",
-        }
-    )
+    return Consumer(_consumer_settings(config))
+
+
+def _consumer_settings(config: AppConfig) -> dict[str, object]:
+    settings: dict[str, object] = {
+        "bootstrap.servers": config.kafka_bootstrap_servers,
+        "group.id": config.kafka_group_id,
+        "enable.auto.commit": False,
+        "auto.offset.reset": "earliest",
+        "isolation.level": "read_committed",
+    }
+    settings.update(config.kafka_security_config())
+    return settings
 
 
 if __name__ == "__main__":

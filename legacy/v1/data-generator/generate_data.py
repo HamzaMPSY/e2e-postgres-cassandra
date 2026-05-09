@@ -1,4 +1,5 @@
 import random
+import os
 import time
 import uuid
 
@@ -77,11 +78,11 @@ class DBConnection:
 
 
 if __name__ == "__main__":
-    host = 'postgres'
-    port = 5432
-    username = 'postgres'
-    db_name = 'postgres'
-    password = 'nidal'
+    host = os.getenv("LEGACY_POSTGRES_HOST", "postgres")
+    port = int(os.getenv("LEGACY_POSTGRES_PORT", "5432"))
+    username = os.getenv("LEGACY_POSTGRES_USER", "postgres")
+    db_name = os.getenv("LEGACY_POSTGRES_DB", "postgres")
+    password = os.getenv("LEGACY_POSTGRES_PASSWORD", "change_me_legacy_postgres")
 
     connection = DBConnection(
         user=username,

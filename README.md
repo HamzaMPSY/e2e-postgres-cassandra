@@ -89,7 +89,7 @@ CDC_SOURCE_TOPICS=cdc.local.omnicare.postgres.public.customers,cdc.local.omnicar
   omnicare-cdc-transformer --max-messages 100 --idle-timeout-seconds 10
 ```
 
-To replay Kafka into an empty Cassandra keyspace, use a new `KAFKA_GROUP_ID`. The target writes are idempotent through deterministic fact IDs and Cassandra upserts.
+To replay Kafka into an empty Cassandra keyspace, use a new `KAFKA_GROUP_ID`. Dimension writes are upserts; fact rows include the source position, so resnapshot recovery should follow the runbook before broad dashboard use.
 
 ## Register Local Connectors
 
@@ -105,6 +105,7 @@ Validate connector templates and required environment variables without starting
 
 ```bash
 python tools/validate_config.py
+python tools/security_check.py
 ```
 
 ## Generate Demo Data
@@ -135,6 +136,8 @@ Fresh containers apply the init files under `postgres`, `mysql`, `mongo`, and `o
 ## Recovery Runbooks
 
 Replay, resnapshot, and recovery operations are documented in `docs/v2/RUNBOOKS.md`.
+
+Production security controls are documented in `docs/v2/SECURITY_HARDENING.md` and enforced by `tools/security_check.py`.
 
 Common commands:
 

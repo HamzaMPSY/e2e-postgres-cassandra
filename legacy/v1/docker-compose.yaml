@@ -8,9 +8,9 @@ services:
     volumes:
       - ~/apps/postgres:/var/lib/postgresql/data:rw
     environment:
-      - POSTGRES_PASSWORD=nidal
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=${LEGACY_POSTGRES_PASSWORD:-change_me_legacy_postgres}
+      - POSTGRES_USER=${LEGACY_POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${LEGACY_POSTGRES_DB:-postgres}
 
   producer:
     build:

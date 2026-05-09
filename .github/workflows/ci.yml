@@ -28,6 +28,9 @@ jobs:
       - name: Validate CDC config
         run: python tools/validate_config.py
 
+      - name: Validate security hardening policy
+        run: python tools/security_check.py
+
       - name: Run transformer tests
         working-directory: transformer
         run: PYTHONPATH=src python -m unittest
@@ -56,3 +59,4 @@ jobs:
           python -m py_compile dashboard/app/server.py
           python -m py_compile observability/exporter/server.py
           python -m py_compile tools/validate_config.py
+          python -m py_compile tools/security_check.py
