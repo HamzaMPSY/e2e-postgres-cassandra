@@ -74,6 +74,14 @@ omnicare-cdc-transformer
 
 The service disables Kafka auto-commit. It writes transformed rows to Cassandra first, then commits the source Kafka offset. If a record fails parsing or writing, it publishes a DLQ record and then commits the source offset to avoid a poison-message loop.
 
+The transformer exposes Prometheus metrics by default on port `8090`. When it runs through Compose, the host URL is:
+
+```text
+http://localhost:18092/metrics
+```
+
+Metrics include processed message counters, DLQ counters by source topic, rows written, and Cassandra write latency.
+
 For local smoke tests, run a finite batch against only the active local topics:
 
 ```bash
@@ -158,7 +166,7 @@ http://localhost:13000          # Grafana, admin/admin
 
 The exporter reads Kafka Connect status and the dashboard API snapshot, then exposes connector health, task health, dashboard API health, snapshot freshness, and dashboard summary values as Prometheus metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
 
-This is the starter operational layer. Full production hardening still needs Kafka consumer lag, DLQ volume, Debezium/JMX internals, and Cassandra write-latency metrics emitted by the transformer and platform runtime.
+This is the starter operational layer. Full production hardening still needs Kafka consumer lag and Debezium/JMX internals for source lag and connector throughput.
 
 ## Production Rule
 

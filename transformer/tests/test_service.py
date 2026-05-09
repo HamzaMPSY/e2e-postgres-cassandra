@@ -4,6 +4,7 @@ import logging
 import unittest
 
 from omnicare_cdc.service import TransformerService
+from omnicare_cdc.metrics import MetricsRegistry
 
 
 class FakeMessage:
@@ -79,7 +80,8 @@ class TransformerServiceTest(unittest.TestCase):
         consumer = FakeConsumer()
         writer = FakeWriter()
         dlq = FakeDlq()
-        service = TransformerService(consumer=consumer, writer=writer, dlq=dlq)
+        metrics = MetricsRegistry()
+        service = TransformerService(consumer=consumer, writer=writer, dlq=dlq, metrics=metrics)
 
         written = service.process_message(
             FakeMessage(
@@ -106,12 +108,17 @@ class TransformerServiceTest(unittest.TestCase):
         self.assertEqual(writer.written, 1)
         self.assertEqual(consumer.committed, 1)
         self.assertEqual(dlq.records, [])
+        self.assertIn(
+            'omnicare_transformer_messages_processed_total{result="success"} 1',
+            metrics.render_prometheus(),
+        )
 
     def test_publishes_dlq_and_commits_on_failure(self) -> None:
         consumer = FakeConsumer()
         writer = FakeWriter(fail=True)
         dlq = FakeDlq()
-        service = TransformerService(consumer=consumer, writer=writer, dlq=dlq)
+        metrics = MetricsRegistry()
+        service = TransformerService(consumer=consumer, writer=writer, dlq=dlq, metrics=metrics)
 
         written = service.process_message(
             FakeMessage(
@@ -130,6 +137,10 @@ class TransformerServiceTest(unittest.TestCase):
         self.assertEqual(written, 0)
         self.assertEqual(consumer.committed, 1)
         self.assertEqual(len(dlq.records), 1)
+        self.assertIn(
+            'omnicare_transformer_messages_processed_total{result="dlq"} 1',
+            metrics.render_prometheus(),
+        )
 
     def test_run_until_stops_at_max_messages(self) -> None:
         event = FakeMessage(

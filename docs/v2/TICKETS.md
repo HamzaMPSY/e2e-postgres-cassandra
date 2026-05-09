@@ -31,7 +31,7 @@ Known current issues:
 - Dashboard service is built and healthy, but needs one final replay validation after the root promotion.
 - Dashboard API returned live revenue, payment, support, and order-to-cash data after root promotion.
 - Config validation CLI passes for active local connectors and warns that Oracle is template-only.
-- Observability starter stack now includes a custom metrics exporter, Prometheus scrape config, starter alert rules, and provisioned Grafana dashboard.
+- Observability starter stack now includes a custom metrics exporter, transformer metrics, Prometheus scrape config, starter alert rules, and provisioned Grafana dashboard.
 - Superset dashboard import is not built; the custom UI is now the default demo dashboard.
 - Oracle remains a connector/schema template only; it is intentionally not part of the default laptop E2E run.
 - Inventory facts need an active Oracle or replacement inventory generator to become visible.
@@ -264,9 +264,10 @@ Acceptance criteria:
 - [x] Starter Prometheus alert rules exist for Connect availability, connector/task state, dashboard API health, stale dashboard snapshots, and missing order facts.
 - [x] Grafana datasource and dashboard provisioning exists.
 - [x] CI validates exporter tests and Grafana dashboard JSON.
+- [x] Transformer exposes processed message counters, DLQ counters, row counts, and Cassandra write latency.
+- [x] Prometheus is configured to scrape transformer metrics in the local Compose stack.
+- [x] Grafana includes transformer message-rate and Cassandra write-latency panels.
 - [ ] Add Kafka consumer lag metrics.
-- [ ] Add DLQ count metrics.
-- [ ] Add Cassandra write latency metrics from the transformer.
 - [ ] Add Debezium/JMX internals for source lag and connector throughput.
 
 ### CDCV2-011: Add config validation CLI
@@ -362,7 +363,7 @@ Acceptance criteria:
 ## Recommended Next Tickets
 
 1. `CDCV2-009`: add Superset import bundle or documented setup so the dashboard is demo-ready.
-2. `CDCV2-010B`: complete observability hardening with Kafka consumer lag, DLQ count, Cassandra write latency, and Debezium/JMX internals.
+2. `CDCV2-010B`: complete observability hardening with Kafka consumer lag and Debezium/JMX internals.
 3. `CDCV2-011`: add config validation CLI for connector JSON, topic naming, required env vars, and source-to-target mapping coverage.
 4. `CDCV2-013`: add replay/resnapshot runbooks using the replay flow validated on 2026-05-08.
 5. `CDCV2-014`: add production security hardening: TLS, Kafka ACLs, secrets manager, source least privilege, and PII classification.

@@ -10,3 +10,8 @@ scrape_configs:
     static_configs:
       - targets:
           - metrics-exporter:8080
+
+  - job_name: omnicare-transformer
+    static_configs:
+      - targets:
+          - transformer:8090

@@ -203,6 +203,28 @@ services:
       TRINO_URL: http://trino:8080
       DASHBOARD_PORT: 8080
 
+  transformer:
+    build:
+      context: ./transformer
+    container_name: omnicare-transformer
+    depends_on:
+      - connect
+      - cassandra-setup
+    ports:
+      - "18092:8090"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_GROUP_ID: omnicare-cdc-transformer
+      CDC_SOURCE_TOPICS: cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mongo.engagement.support_tickets
+      DLQ_TOPIC: dlq.local.omnicare.transformer
+      CASSANDRA_CONTACT_POINTS: cassandra
+      CASSANDRA_KEYSPACE: omnicare_dashboard
+      CASSANDRA_LOCAL_DC: datacenter1
+      CASSANDRA_PROTOCOL_VERSION: 5
+      TRANSFORMER_METRICS_ENABLED: "true"
+      TRANSFORMER_METRICS_HOST: 0.0.0.0
+      TRANSFORMER_METRICS_PORT: 8090
+
   metrics-exporter:
     build:
       context: ./observability/exporter

@@ -54,3 +54,30 @@ groups:
         annotations:
           summary: No order-line facts are visible
           description: The dashboard summary reports zero order lines, which usually means CDC replay has not populated Cassandra.
+
+      - alert: OmniCareTransformerDown
+        expr: up{job="omnicare-transformer"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Transformer metrics endpoint is unavailable
+          description: Prometheus cannot scrape the transformer metrics endpoint.
+
+      - alert: OmniCareTransformerDlqRecords
+        expr: increase(omnicare_transformer_dlq_records_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Transformer is publishing DLQ records
+          description: DLQ records increased for source topic {{ $labels.source_topic }}.
+
+      - alert: OmniCareCassandraWriteLatencyHigh
+        expr: rate(omnicare_transformer_cassandra_write_latency_seconds_sum[5m]) / rate(omnicare_transformer_cassandra_write_latency_seconds_count[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cassandra write latency is high
+          description: Average transformer Cassandra write latency is above one second over five minutes.

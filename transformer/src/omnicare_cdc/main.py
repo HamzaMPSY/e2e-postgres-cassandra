@@ -6,6 +6,7 @@ import argparse
 from .cassandra_writer import connect_cassandra
 from .config import AppConfig
 from .dlq import connect_dlq_producer
+from .metrics import MetricsRegistry, start_metrics_server
 from .service import TransformerService
 
 
@@ -30,6 +31,15 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     config = AppConfig.from_env()
+    metrics = MetricsRegistry()
+    if config.metrics_enabled:
+        start_metrics_server(metrics, host=config.metrics_host, port=config.metrics_port)
+        logging.info(
+            "Transformer metrics listening on %s:%s",
+            config.metrics_host,
+            config.metrics_port,
+        )
+
     consumer = _connect_consumer(config)
     writer = connect_cassandra(
         contact_points=config.cassandra_contact_points,
@@ -42,7 +52,7 @@ def main() -> None:
         topic=config.dlq_topic,
     )
     consumer.subscribe(list(config.source_topics))
-    service = TransformerService(consumer=consumer, writer=writer, dlq=dlq)
+    service = TransformerService(consumer=consumer, writer=writer, dlq=dlq, metrics=metrics)
     if args.max_messages > 0:
         processed = service.run_until(
             max_messages=args.max_messages,

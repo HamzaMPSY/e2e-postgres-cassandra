@@ -25,6 +25,9 @@ class AppConfig:
     cassandra_local_dc: str
     cassandra_protocol_version: int
     poll_timeout_seconds: float
+    metrics_enabled: bool
+    metrics_host: str
+    metrics_port: int
 
     @classmethod
     def from_env(cls) -> AppConfig:
@@ -38,6 +41,9 @@ class AppConfig:
             cassandra_local_dc=_env("CASSANDRA_LOCAL_DC", "datacenter1"),
             cassandra_protocol_version=int(_env("CASSANDRA_PROTOCOL_VERSION", "5")),
             poll_timeout_seconds=float(_env("KAFKA_POLL_TIMEOUT_SECONDS", "1.0")),
+            metrics_enabled=_bool("TRANSFORMER_METRICS_ENABLED", True),
+            metrics_host=_env("TRANSFORMER_METRICS_HOST", "0.0.0.0"),
+            metrics_port=int(_env("TRANSFORMER_METRICS_PORT", "8090")),
         )
 
 
@@ -48,3 +54,10 @@ def _env(name: str, default: str) -> str:
 def _csv(name: str, default: str) -> tuple[str, ...]:
     value = _env(name, default)
     return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def _bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
