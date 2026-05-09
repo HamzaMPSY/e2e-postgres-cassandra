@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnicare-dashboard
+  namespace: {{ .Values.kafka.namespace }}
+spec:
+  replicas: {{ .Values.dashboard.replicas }}
+  selector:
+    matchLabels:
+      app: omnicare-dashboard
+  template:
+    metadata:
+      labels:
+        app: omnicare-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: {{ .Values.dashboard.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: TRINO_URL
+              value: {{ .Values.dashboard.trinoUrl | quote }}
+          ports:
+            - name: http
+              containerPort: 8080

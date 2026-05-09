@@ -10,6 +10,10 @@ from typing import Any
 
 
 SECRET_KEY = re.compile(r"(password|passwd|secret|token|private[_-]?key|credential)", re.I)
+SECRET_REFERENCE_KEY = re.compile(
+    r"^(secret[_-]?name|.*secret[_-]?name|secret[_-]?ref|.*secret[_-]?ref|secret[_-]?id|.*secret[_-]?arn[s]?)$",
+    re.I,
+)
 ENV_REFERENCE = re.compile(r"^\$\{[A-Z0-9_]+(?::-[^}]*)?}$")
 SECRET_REFERENCE = re.compile(r"^(cdc|secret|vault|aws|gcp|projects?)/", re.I)
 PLACEHOLDER = re.compile(r"^(change_me_|<from-secret-manager>)", re.I)
@@ -30,6 +34,7 @@ TEXT_EXTENSIONS = {
     ".py",
     ".sh",
     ".sql",
+    ".tf",
     ".txt",
     ".yaml",
     ".yml",
@@ -198,6 +203,8 @@ def scan_for_committed_secrets(root: Path, errors: list[str], warnings: list[str
             key, value = parse_assignment(path, line)
             if not key or not SECRET_KEY.search(key):
                 continue
+            if SECRET_REFERENCE_KEY.match(key):
+                continue
             if is_allowed_secret_value(path, value):
                 continue
             errors.append(f"{relative}:{line_number}: secret-like value for {key!r} is not externalized")
@@ -241,7 +248,7 @@ def parse_assignment(path: Path, line: str) -> tuple[str | None, str]:
             return yaml_match.group(1), normalize_value(yaml_match.group(2))
         return None, ""
 
-    if path.suffix in {".env", ".example", ".properties", ".sh"} or path.name == ".env.example":
+    if path.suffix in {".env", ".example", ".properties", ".sh", ".tf"} or path.name == ".env.example":
         match = ENV_ASSIGNMENT.match(line)
         if not match:
             return None, ""
@@ -266,6 +273,8 @@ def is_allowed_secret_value(path: Path, value: str) -> bool:
     if ENV_REFERENCE.match(value):
         return True
     if re.match(r"^\$\{(secret|secrets|vault|aws|gcp):[^}]+}$", value, re.I):
+        return True
+    if value.startswith(("var.", "local.", "each.", "data.", "google_secret_manager_secret.")):
         return True
     if path.suffix == ".py" and value.startswith(
         ("_env(", "os.getenv(", "os.environ.get(", "re.compile(")

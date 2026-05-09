@@ -47,6 +47,28 @@ class SecurityCheckTest(unittest.TestCase):
             any("GF_SECURITY_ADMIN_PASSWORD" in error for error in result.errors)
         )
 
+    def test_allows_kubernetes_secret_name_references(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _minimal_repo(Path(tmp))
+            (root / "deployment.yaml").write_text(
+                "envFrom:\n  - secretRef:\n      name: runtime-secret\n",
+                encoding="utf-8",
+            )
+
+            result = check_repo(root)
+
+        self.assertEqual(result.errors, [])
+
+    def test_detects_literal_secret_in_terraform(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _minimal_repo(Path(tmp))
+            terraform = root / "main.tf"
+            terraform.write_text('database_password = "plain-text-password"\n', encoding="utf-8")
+
+            result = check_repo(root)
+
+        self.assertTrue(any("database_password" in error for error in result.errors))
+
     def test_requires_connector_security_controls(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))

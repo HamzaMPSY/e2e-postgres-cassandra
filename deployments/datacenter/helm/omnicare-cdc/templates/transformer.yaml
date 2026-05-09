@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnicare-transformer
+  namespace: {{ .Values.kafka.namespace }}
+spec:
+  replicas: {{ .Values.transformer.replicas }}
+  selector:
+    matchLabels:
+      app: omnicare-transformer
+  template:
+    metadata:
+      labels:
+        app: omnicare-transformer
+    spec:
+      containers:
+        - name: transformer
+          image: {{ .Values.transformer.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.transformer.kafkaBootstrapServers | quote }}
+            - name: KAFKA_SECURITY_PROTOCOL
+              value: {{ .Values.transformer.kafkaSecurityProtocol | quote }}
+            - name: KAFKA_SSL_CA_LOCATION
+              value: /etc/kafka/ca/ca.crt
+            - name: KAFKA_GROUP_ID
+              value: omnicare-cdc-transformer
+            - name: DLQ_TOPIC
+              value: dlq.prod.omnicare.transformer
+            - name: DLQ_INCLUDE_PAYLOADS
+              value: {{ .Values.transformer.dlqIncludePayloads | quote }}
+            - name: CASSANDRA_CONTACT_POINTS
+              value: {{ .Values.transformer.cassandraContactPoints | quote }}
+            - name: CASSANDRA_KEYSPACE
+              value: {{ .Values.transformer.cassandraKeyspace | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secrets.transformerSecretName }}
+          ports:
+            - name: metrics
+              containerPort: 8090
+          volumeMounts:
+            - name: kafka-ca
+              mountPath: /etc/kafka/ca
+              readOnly: true
+      volumes:
+        - name: kafka-ca
+          secret:
+            secretName: {{ .Values.kafka.name }}-cluster-ca-cert

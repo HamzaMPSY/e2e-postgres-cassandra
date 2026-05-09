@@ -31,6 +31,9 @@ jobs:
       - name: Validate security hardening policy
         run: python tools/security_check.py
 
+      - name: Validate deployment templates
+        run: python tools/validate_deployments.py
+
       - name: Run transformer tests
         working-directory: transformer
         run: PYTHONPATH=src python -m unittest
@@ -60,3 +63,4 @@ jobs:
           python -m py_compile observability/exporter/server.py
           python -m py_compile tools/validate_config.py
           python -m py_compile tools/security_check.py
+          python -m py_compile tools/validate_deployments.py

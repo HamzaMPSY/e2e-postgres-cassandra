@@ -1,0 +1,28 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: omnicare-transformer
+  namespace: {{ .Values.kafka.namespace }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka.name }}
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: cdc.prod.omnicare.
+          patternType: prefix
+        operations: [Read, Describe]
+      - resource:
+          type: topic
+          name: dlq.prod.omnicare.transformer
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: group
+          name: omnicare-cdc-transformer
+          patternType: literal
+        operations: [Read]

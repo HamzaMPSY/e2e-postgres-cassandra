@@ -1,0 +1,32 @@
+global:
+  environment: prod
+  imagePullPolicy: IfNotPresent
+
+kafka:
+  name: omnicare
+  namespace: omnicare-cdc
+  replicas: 3
+  storageSize: 100Gi
+
+connect:
+  replicas: 2
+  image: registry.example.com/omnicare/kafka-connect-debezium:0.1.0
+  bootstrapServers: omnicare-kafka-bootstrap:9093
+
+transformer:
+  image: registry.example.com/omnicare/transformer:0.1.0
+  replicas: 2
+  kafkaBootstrapServers: omnicare-kafka-bootstrap:9093
+  kafkaSecurityProtocol: SSL
+  cassandraContactPoints: cassandra.datastores.svc.cluster.local
+  cassandraKeyspace: omnicare_dashboard
+  dlqIncludePayloads: "false"
+
+dashboard:
+  image: registry.example.com/omnicare/dashboard:0.1.0
+  replicas: 2
+  trinoUrl: http://trino.datastores.svc.cluster.local:8080
+
+secrets:
+  provider: vault
+  transformerSecretName: omnicare-transformer-runtime

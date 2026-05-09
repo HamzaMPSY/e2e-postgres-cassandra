@@ -1,0 +1,31 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: omnicare-connect
+  namespace: {{ .Values.kafka.namespace }}
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  replicas: {{ .Values.connect.replicas }}
+  image: {{ .Values.connect.image }}
+  bootstrapServers: {{ .Values.connect.bootstrapServers }}
+  tls:
+    trustedCertificates:
+      - secretName: {{ .Values.kafka.name }}-cluster-ca-cert
+        certificate: ca.crt
+  authentication:
+    type: tls
+    certificateAndKey:
+      secretName: omnicare-connect-user
+      certificate: user.crt
+      key: user.key
+  config:
+    group.id: omnicare-connect
+    config.storage.topic: connect_configs
+    offset.storage.topic: connect_offsets
+    status.storage.topic: connect_statuses
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: false
+    value.converter.schemas.enable: false
+    errors.log.include.messages: false

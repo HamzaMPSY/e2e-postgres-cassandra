@@ -23,7 +23,7 @@ The original project demonstrated Postgres to Cassandra CDC. This version turns 
 - Trino SQL access.
 - Tested transformation code.
 - Browser dashboard and observability starter stack.
-- Production backlog and runbooks.
+- Production runbooks and deployment templates.
 
 ## Quick Start
 
@@ -47,7 +47,7 @@ podman compose --env-file .env -f docker-compose.yaml --profile oracle up -d
 This initial V2 slice includes:
 
 - Architecture docs.
-- Ticket backlog.
+- Ignored local ticket board for execution tracking.
 - Local Compose skeleton.
 - Source DB init scripts.
 - Cassandra schema.
@@ -138,6 +138,8 @@ Fresh containers apply the init files under `postgres`, `mysql`, `mongo`, and `o
 Replay, resnapshot, and recovery operations are documented in `docs/v2/RUNBOOKS.md`.
 
 Production security controls are documented in `docs/v2/SECURITY_HARDENING.md` and enforced by `tools/security_check.py`.
+
+AWS, GCP, and datacenter deployment skeletons are documented in `docs/v2/DEPLOYMENT.md` and validated by `tools/validate_deployments.py`.
 
 Common commands:
 

@@ -149,11 +149,15 @@ Trino exposes Cassandra tables to Superset. This gives an interview-friendly sep
 RDS/Aurora/EC2 DBs -> MSK Connect/Debezium or DMS -> MSK -> transformer on ECS/EKS/EMR -> Cassandra/Astra/Keyspaces -> Trino/Superset
 ```
 
+Template path: `deployments/aws`
+
 ### GCP
 
 ```text
 Cloud SQL/Oracle/SQL Server/Mongo sources -> Datastream or Debezium on GKE -> Pub/Sub or Kafka -> Dataflow/transformer -> Cassandra/Astra -> Trino/Superset
 ```
+
+Template path: `deployments/gcp`
 
 ### Datacenter
 
@@ -161,13 +165,14 @@ Cloud SQL/Oracle/SQL Server/Mongo sources -> Datastream or Debezium on GKE -> Pu
 Source DBs -> Kafka Connect on Kubernetes/VMs -> Kafka/Schema Registry -> transformer -> Cassandra -> Trino/Superset
 ```
 
+Template path: `deployments/datacenter/helm/omnicare-cdc`
+
 ## Non-Goals for First Build Slice
 
-- Full cloud Terraform.
-- Enterprise TLS and ACLs.
+- Fully applied environment-specific Terraform state.
+- Enterprise certificate issuance and ACL rollout.
 - Full Superset dashboard import.
 - Oracle container running by default.
 - Exactly-once end-to-end claims.
 
-Those are explicit backlog items. The first slice builds a clean local platform and tested transformation layer.
-
+Remaining execution tasks are tracked locally in `.tickets/board.md`. The committed repo keeps implementation docs, templates, and validation only.

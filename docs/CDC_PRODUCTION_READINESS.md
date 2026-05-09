@@ -526,7 +526,7 @@ AWS config handling:
 - Store connector secrets in AWS Secrets Manager.
 - Use IAM roles for MSK Connect.
 - Store connector JSON/YAML in Git.
-- Deploy with Terraform/CDK/CloudFormation.
+- Deploy with Terraform/CDK/CloudFormation. This repo includes a starter Terraform skeleton under `deployments/aws`.
 - Use CloudWatch for managed service metrics and Prometheus/Grafana for Kafka/JMX where needed.
 
 ### 6.2 GCP architecture
@@ -562,7 +562,7 @@ GCP config handling:
 
 - Store secrets in Secret Manager.
 - Use private connectivity: VPC peering, Private Service Connect, VPN, or Interconnect.
-- Keep stream definitions and Dataflow templates in Terraform.
+- Keep stream definitions and Dataflow templates in Terraform. This repo includes a starter Terraform skeleton under `deployments/gcp`.
 - Monitor stream freshness, errors, and Dataflow backlog in Cloud Monitoring.
 
 ### 6.3 On-prem / datacenter architecture
@@ -599,6 +599,7 @@ Datacenter requirements:
 - Prometheus/Grafana for JMX metrics.
 - Centralized logs and alerting.
 - Disaster recovery cluster or backup/restore strategy.
+- This repo includes a starter Strimzi/Helm skeleton under `deployments/datacenter/helm/omnicare-cdc`.
 
 ## 7. Configuration Management
 
@@ -999,7 +1000,7 @@ Each CDC pipeline should publish metadata:
 
 ### Phase 4: Cloud/on-prem deployment
 
-- Write Terraform for AWS/GCP/on-prem Kubernetes.
+- Start from the committed templates under `deployments/aws`, `deployments/gcp`, and `deployments/datacenter/helm/omnicare-cdc`.
 - Store secrets in the platform secret manager.
 - Deploy connectors from CI/CD.
 - Add canary connector and smoke tests.
