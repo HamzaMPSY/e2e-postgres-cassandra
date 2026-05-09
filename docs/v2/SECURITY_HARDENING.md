@@ -91,6 +91,7 @@ CREATE ROLE orders_cdc_prod LOGIN REPLICATION PASSWORD '<from-secret-manager>';
 GRANT CONNECT ON DATABASE orders TO orders_cdc_prod;
 GRANT USAGE ON SCHEMA public TO orders_cdc_prod;
 GRANT SELECT ON public.customers, public.orders, public.order_items TO orders_cdc_prod;
+GRANT SELECT ON public.products, public.stock_movements TO orders_cdc_prod;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.debezium_signal TO orders_cdc_prod;
 ```
 

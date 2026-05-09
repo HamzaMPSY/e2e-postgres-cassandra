@@ -30,6 +30,25 @@ CREATE TABLE IF NOT EXISTS order_items (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS products (
+  product_id TEXT PRIMARY KEY,
+  sku TEXT NOT NULL,
+  product_name TEXT NOT NULL,
+  product_category TEXT NOT NULL,
+  supplier_id TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  movement_id TEXT PRIMARY KEY,
+  product_id TEXT NOT NULL REFERENCES products(product_id),
+  warehouse_id TEXT NOT NULL,
+  movement_type TEXT NOT NULL,
+  quantity INT NOT NULL CHECK (quantity > 0),
+  movement_ts TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS debezium_signal (
   id VARCHAR(42) PRIMARY KEY,
   type VARCHAR(32) NOT NULL,
@@ -39,6 +58,14 @@ CREATE TABLE IF NOT EXISTS debezium_signal (
 ALTER TABLE customers REPLICA IDENTITY FULL;
 ALTER TABLE orders REPLICA IDENTITY FULL;
 ALTER TABLE order_items REPLICA IDENTITY FULL;
+ALTER TABLE products REPLICA IDENTITY FULL;
+ALTER TABLE stock_movements REPLICA IDENTITY FULL;
 ALTER TABLE debezium_signal REPLICA IDENTITY FULL;
 
-CREATE PUBLICATION dbz_omnicare_orders FOR TABLE customers, orders, order_items, debezium_signal;
+CREATE PUBLICATION dbz_omnicare_orders FOR TABLE
+  customers,
+  orders,
+  order_items,
+  products,
+  stock_movements,
+  debezium_signal;

@@ -7,7 +7,10 @@ from dataclasses import dataclass
 DEFAULT_TOPICS = (
     "cdc.local.omnicare.postgres.public.customers,"
     "cdc.local.omnicare.postgres.public.order_items,"
+    "cdc.local.omnicare.postgres.public.products,"
+    "cdc.local.omnicare.postgres.public.stock_movements,"
     "cdc.local.omnicare.mysql.billing.payments,"
+    "cdc.local.omnicare.mysql.billing.refunds,"
     "cdc.local.omnicare.oracle.ERP_APP.PRODUCTS,"
     "cdc.local.omnicare.oracle.ERP_APP.STOCK_MOVEMENTS,"
     "cdc.local.omnicare.mongo.engagement.support_tickets"

@@ -72,15 +72,18 @@ Optional profile:
 
 - Oracle Free container for local ERP simulation.
 
-Oracle is optional because it is resource-heavy and often has licensing/operational constraints in real companies. The demo still includes Oracle connector templates and DDL so the architecture conversation is complete.
+Oracle is optional because it is resource-heavy and often has licensing/operational constraints in real companies. The demo still includes Oracle connector templates and DDL so the architecture conversation is complete. When Oracle is not active, the generator can use a PostgreSQL inventory fallback (`GENERATOR_INVENTORY_SOURCE=postgres-fallback`) that emits `products` and `stock_movements` through the same Debezium/PostgreSQL path as the order service.
 
 ## Topic Naming
 
 ```text
 cdc.local.omnicare.postgres.public.orders
 cdc.local.omnicare.postgres.public.order_items
+cdc.local.omnicare.postgres.public.products
+cdc.local.omnicare.postgres.public.stock_movements
 cdc.local.omnicare.mysql.billing.payments
-cdc.local.omnicare.oracle.erp.stock_movements
+cdc.local.omnicare.mysql.billing.refunds
+cdc.local.omnicare.oracle.ERP_APP.STOCK_MOVEMENTS
 cdc.local.omnicare.mongo.engagement.support_tickets
 ```
 
@@ -109,6 +112,8 @@ For example:
 ```text
 fact_order_line_id = order_id + line_id + source_position
 fact_payment_id = payment_id + source_position
+fact_refund_id = refund_id + source_position
+fact_inventory_movement_id = movement_id + source_position
 fact_support_case_id = ticket_id + source_position
 ```
 
@@ -129,6 +134,7 @@ Facts:
 
 - `fact_order_line_by_day`
 - `fact_payment_by_day`
+- `fact_refund_by_day`
 - `fact_inventory_movement_by_product`
 - `fact_support_case_by_customer`
 - `fact_customer_health_by_day`

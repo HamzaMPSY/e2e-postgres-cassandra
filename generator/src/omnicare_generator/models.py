@@ -59,6 +59,34 @@ class Payment:
 
 
 @dataclass(frozen=True)
+class Refund:
+    refund_id: str
+    payment_id: str
+    refund_reason: str
+    amount_cents: int
+    refunded_at: datetime
+
+
+@dataclass(frozen=True)
+class Product:
+    product_id: str
+    sku: str
+    product_name: str
+    product_category: str
+    supplier_id: str
+
+
+@dataclass(frozen=True)
+class StockMovement:
+    movement_id: str
+    product_id: str
+    warehouse_id: str
+    movement_type: str
+    quantity: int
+    movement_ts: datetime
+
+
+@dataclass(frozen=True)
 class SupportTicket:
     ticket_id: str
     customer_id: UUID

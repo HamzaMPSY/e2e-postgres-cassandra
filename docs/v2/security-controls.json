@@ -34,6 +34,8 @@
         "SELECT ON public.customers",
         "SELECT ON public.orders",
         "SELECT ON public.order_items",
+        "SELECT ON public.products",
+        "SELECT ON public.stock_movements",
         "SELECT,INSERT,UPDATE,DELETE ON public.debezium_signal"
       ],
       "kafka_principal": "User:cdc-postgres-orders",

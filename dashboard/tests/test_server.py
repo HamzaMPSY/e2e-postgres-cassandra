@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from server import _rows_from_response, _summary
+from server import PAYMENT_HEALTH, _rows_from_response, _summary
 
 
 class ServerTest(unittest.TestCase):
@@ -31,6 +31,10 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(summary["paymentCount"], 2)
         self.assertEqual(summary["supportCases"], 4)
         self.assertEqual(summary["openAmount"], 20.5)
+
+    def test_payment_health_includes_refunds(self) -> None:
+        self.assertIn("fact_refund_by_day", PAYMENT_HEALTH)
+        self.assertIn("'refunded' AS payment_status", PAYMENT_HEALTH)
 
 
 if __name__ == "__main__":

@@ -235,7 +235,7 @@ services:
       KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-}
       KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-}
       KAFKA_SSL_CA_LOCATION: ${KAFKA_SSL_CA_LOCATION:-}
-      CDC_SOURCE_TOPICS: cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mongo.engagement.support_tickets
+      CDC_SOURCE_TOPICS: cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.postgres.public.products,cdc.local.omnicare.postgres.public.stock_movements,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mysql.billing.refunds,cdc.local.omnicare.mongo.engagement.support_tickets
       DLQ_TOPIC: dlq.local.omnicare.transformer
       DLQ_INCLUDE_PAYLOADS: "false"
       CASSANDRA_CONTACT_POINTS: cassandra

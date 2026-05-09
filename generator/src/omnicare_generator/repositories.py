@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from .models import Customer, Invoice, Order, OrderItem, Payment, SupportTicket
+from .models import (
+    Customer,
+    Invoice,
+    Order,
+    OrderItem,
+    Payment,
+    Product,
+    Refund,
+    StockMovement,
+    SupportTicket,
+)
 
 
 class OrderRepository(Protocol):
@@ -14,10 +24,16 @@ class OrderRepository(Protocol):
 class BillingRepository(Protocol):
     def insert_invoice(self, invoice: Invoice) -> None: ...
     def insert_payment(self, payment: Payment) -> None: ...
+    def insert_refund(self, refund: Refund) -> None: ...
 
 
 class EngagementRepository(Protocol):
     def insert_ticket(self, ticket: SupportTicket) -> None: ...
+
+
+class InventoryRepository(Protocol):
+    def upsert_product(self, product: Product) -> None: ...
+    def insert_stock_movement(self, movement: StockMovement) -> None: ...
 
 
 class PsycopgOrderRepository:
@@ -90,6 +106,55 @@ class PsycopgOrderRepository:
         self._connection.commit()
 
 
+class PsycopgInventoryRepository:
+    def __init__(self, connection: Any):
+        self._connection = connection
+
+    def upsert_product(self, product: Product) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO products (
+                  product_id, sku, product_name, product_category, supplier_id
+                ) VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (product_id) DO UPDATE SET
+                  sku = EXCLUDED.sku,
+                  product_name = EXCLUDED.product_name,
+                  product_category = EXCLUDED.product_category,
+                  supplier_id = EXCLUDED.supplier_id,
+                  updated_at = now()
+                """,
+                (
+                    product.product_id,
+                    product.sku,
+                    product.product_name,
+                    product.product_category,
+                    product.supplier_id,
+                ),
+            )
+        self._connection.commit()
+
+    def insert_stock_movement(self, movement: StockMovement) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO stock_movements (
+                  movement_id, product_id, warehouse_id, movement_type,
+                  quantity, movement_ts
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    movement.movement_id,
+                    movement.product_id,
+                    movement.warehouse_id,
+                    movement.movement_type,
+                    movement.quantity,
+                    movement.movement_ts,
+                ),
+            )
+        self._connection.commit()
+
+
 class PymysqlBillingRepository:
     def __init__(self, connection: Any):
         self._connection = connection
@@ -110,6 +175,24 @@ class PymysqlBillingRepository:
                     invoice.invoice_status,
                     invoice.amount_cents,
                     invoice.issued_at,
+                ),
+            )
+        self._connection.commit()
+
+    def insert_refund(self, refund: Refund) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO refunds (
+                  refund_id, payment_id, refund_reason, amount_cents, refunded_at
+                ) VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    refund.refund_id,
+                    refund.payment_id,
+                    refund.refund_reason,
+                    refund.amount_cents,
+                    refund.refunded_at,
                 ),
             )
         self._connection.commit()

@@ -64,6 +64,20 @@ CREATE TABLE IF NOT EXISTS omnicare_dashboard.fact_payment_by_day (
   PRIMARY KEY ((payment_day), fact_id)
 );
 
+CREATE TABLE IF NOT EXISTS omnicare_dashboard.fact_refund_by_day (
+  refund_day date,
+  fact_id text,
+  refund_id text,
+  payment_id text,
+  refund_reason text,
+  amount_cents bigint,
+  source_topic text,
+  source_position text,
+  event_ts timestamp,
+  op text,
+  PRIMARY KEY ((refund_day), fact_id)
+);
+
 CREATE TABLE IF NOT EXISTS omnicare_dashboard.fact_inventory_movement_by_product (
   product_id text,
   movement_ts timestamp,
@@ -94,4 +108,3 @@ CREATE TABLE IF NOT EXISTS omnicare_dashboard.fact_support_case_by_customer (
   op text,
   PRIMARY KEY ((customer_id), opened_day, fact_id)
 ) WITH CLUSTERING ORDER BY (opened_day DESC);
-

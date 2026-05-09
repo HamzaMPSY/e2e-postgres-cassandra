@@ -108,6 +108,32 @@ def _map_payment(event: SourceEvent) -> list[StarRow]:
     ]
 
 
+def _map_refund(event: SourceEvent) -> list[StarRow]:
+    row = event.row
+    if row is None:
+        return []
+
+    event_day = _day(row.get("refunded_at") or row.get("updated_at"), event.event_datetime)
+    fact_id = _fact_id("refund", row["refund_id"], event.source_position)
+
+    return [
+        StarRow(
+            table="fact_refund_by_day",
+            key={"refund_day": event_day, "fact_id": fact_id},
+            values={
+                "refund_id": str(row["refund_id"]),
+                "payment_id": str(row["payment_id"]),
+                "refund_reason": row.get("refund_reason"),
+                "amount_cents": int(row["amount_cents"]),
+                "source_topic": event.topic,
+                "source_position": event.source_position,
+                "event_ts": event.event_datetime,
+                "op": event.op,
+            },
+        )
+    ]
+
+
 def _map_product(event: SourceEvent) -> list[StarRow]:
     row = event.row
     if row is None:
@@ -229,6 +255,7 @@ _MAPPERS: dict[str, Mapper] = {
     "customers": _map_customer,
     "order_items": _map_order_item,
     "payments": _map_payment,
+    "refunds": _map_refund,
     "products": _map_product,
     "stock_movements": _map_stock_movement,
     "support_tickets": _map_support_ticket,

@@ -11,7 +11,7 @@
     "topic.prefix": "cdc.local.omnicare.postgres",
     "slot.name": "dbz_omnicare_orders",
     "publication.name": "dbz_omnicare_orders",
-    "table.include.list": "public.customers,public.orders,public.order_items,public.debezium_signal",
+    "table.include.list": "public.customers,public.orders,public.order_items,public.products,public.stock_movements,public.debezium_signal",
     "snapshot.mode": "initial",
     "signal.enabled.channels": "source,kafka",
     "signal.data.collection": "public.debezium_signal",

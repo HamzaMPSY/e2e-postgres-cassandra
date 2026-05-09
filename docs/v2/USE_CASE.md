@@ -21,6 +21,8 @@ The business is a healthcare commerce and claims operations company:
 | ERP Inventory | Oracle | Common legacy enterprise system | `products`, `stock_movements`, `suppliers` |
 | Customer Engagement | MongoDB | Flexible documents for tickets, notes, touchpoints | `support_tickets`, `customer_events` |
 
+For laptop demos where Oracle is not active, the V2 generator can publish the inventory source as a PostgreSQL fallback table pair (`products`, `stock_movements`). The transformer writes those events into the same Cassandra product and inventory fact tables, so the dashboard path remains valid while the production architecture still supports Oracle as the system of record.
+
 ## Target
 
 Cassandra is used as the serving layer for dashboard reads. The transformed model is star-schema inspired, but adapted to Cassandra query patterns.
@@ -93,4 +95,3 @@ flowchart LR
 For the interview, describe this as:
 
 > Each operational application owns its database. I use CDC to publish committed changes from each source log into Kafka. Kafka is the durable integration contract. A transformation service builds idempotent dashboard projections in Cassandra. Trino exposes Cassandra to BI tooling, and Superset renders dashboards. The design includes schema governance, DLQ, secrets, monitoring, replay, and idempotent writes.
-

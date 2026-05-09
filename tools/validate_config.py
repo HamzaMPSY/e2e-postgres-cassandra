@@ -42,7 +42,10 @@ REQUIRED_ENV_VARS = {
 REQUIRED_SOURCE_COVERAGE = {
     "public.customers",
     "public.order_items",
+    "public.products",
+    "public.stock_movements",
     "billing.payments",
+    "billing.refunds",
     "engagement.support_tickets",
 }
 

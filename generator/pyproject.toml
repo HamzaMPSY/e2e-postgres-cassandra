@@ -1,7 +1,7 @@
 [project]
 name = "omnicare-demo-generator"
 version = "0.1.0"
-description = "Generates coherent OmniCare demo data across PostgreSQL, MySQL, and MongoDB source systems."
+description = "Generates coherent long-running OmniCare demo data across PostgreSQL, MySQL, and MongoDB source systems."
 requires-python = ">=3.11"
 dependencies = [
   "psycopg[binary]>=3.2,<4",
@@ -14,4 +14,3 @@ omnicare-demo-generator = "omnicare_generator.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

@@ -85,7 +85,7 @@ Metrics include processed message counters, DLQ counters by source topic, rows w
 For local smoke tests, run a finite batch against only the active local topics:
 
 ```bash
-CDC_SOURCE_TOPICS=cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mongo.engagement.support_tickets \
+CDC_SOURCE_TOPICS=cdc.local.omnicare.postgres.public.customers,cdc.local.omnicare.postgres.public.order_items,cdc.local.omnicare.postgres.public.products,cdc.local.omnicare.postgres.public.stock_movements,cdc.local.omnicare.mysql.billing.payments,cdc.local.omnicare.mysql.billing.refunds,cdc.local.omnicare.mongo.engagement.support_tickets \
   omnicare-cdc-transformer --max-messages 100 --idle-timeout-seconds 10
 ```
 
@@ -115,10 +115,24 @@ Install and run the generator:
 ```bash
 cd generator
 python -m pip install -e .
-omnicare-demo-generator --iterations 10
+omnicare-demo-generator --max-events 500 --rate-per-second 5
 ```
 
-The generator writes to PostgreSQL, MySQL, and MongoDB using driver parameter binding / document APIs. Oracle generator support is intentionally deferred because the local Oracle profile is optional.
+The generator writes orders and the local inventory fallback to PostgreSQL, invoices/payments/refunds to MySQL, and support tickets to MongoDB using driver parameter binding / document APIs. Oracle generator support is intentionally deferred because the local Oracle profile is optional; when Oracle is not active, `GENERATOR_INVENTORY_SOURCE=postgres-fallback` publishes product and stock-movement CDC through PostgreSQL so the inventory dashboard path still has data.
+
+Useful long-running controls:
+
+```bash
+omnicare-demo-generator \
+  --iterations 0 \
+  --duration-seconds 300 \
+  --rate-per-second 10 \
+  --failure-rate 0.20 \
+  --refund-rate 0.10 \
+  --sla-breach-rate 0.15
+```
+
+`--max-events` stops after a fixed count, `--duration-seconds` stops after elapsed wall time, and `--iterations 0` removes the count limit for duration-based or continuous runs. `--inventory-source oracle` disables the PostgreSQL inventory fallback when a real Oracle inventory feed is active.
 
 Host-side MongoDB writes use `directConnection=true` because the local replica set advertises the internal Compose hostname to Debezium. The Debezium Mongo connector still uses the internal replica-set address from inside the Compose network.
 
@@ -128,6 +142,7 @@ Fresh containers apply the init files under `postgres`, `mysql`, `mongo`, and `o
 
 - `postgres/001_order_item_context.sql`: denormalized order context needed by order-line facts.
 - `postgres/002_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
+- `postgres/003_inventory_fallback.sql`: optional local inventory tables when the Oracle profile is not active.
 - `mysql/001_payment_context.sql`: payment context and widened prefixed IDs.
 - `mysql/002_debezium_privileges.sql`: local Debezium snapshot/binlog privileges.
 - `mysql/003_debezium_signal.sql`: Debezium source signal table for incremental snapshots.

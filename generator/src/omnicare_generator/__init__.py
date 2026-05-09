@@ -1,5 +1,5 @@
 from __future__ import annotations
 
-from .scenario import DemoScenario
+from .scenario import DemoScenario, ScenarioMix
 
-__all__ = ["DemoScenario"]
+__all__ = ["DemoScenario", "ScenarioMix"]
