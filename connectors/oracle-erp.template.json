@@ -11,8 +11,13 @@
     "topic.prefix": "cdc.local.omnicare.oracle",
     "database.connection.adapter": "logminer",
     "schema.include.list": "ERP_APP",
-    "table.include.list": "ERP_APP.PRODUCTS,ERP_APP.SUPPLIERS,ERP_APP.STOCK_MOVEMENTS",
+    "table.include.list": "ERP_APP.PRODUCTS,ERP_APP.SUPPLIERS,ERP_APP.STOCK_MOVEMENTS,ERP_APP.DEBEZIUM_SIGNAL",
     "snapshot.mode": "initial",
+    "signal.enabled.channels": "source,kafka",
+    "signal.data.collection": "ERP_APP.DEBEZIUM_SIGNAL",
+    "signal.kafka.bootstrap.servers": "${KAFKA_BOOTSTRAP_SERVERS}",
+    "signal.kafka.groupId": "omnicare-oracle-signals",
+    "signal.kafka.topic": "${DEBEZIUM_SIGNAL_TOPIC}",
     "include.schema.changes": "true",
     "heartbeat.interval.ms": "10000",
     "decimal.handling.mode": "string",
@@ -20,4 +25,3 @@
     "errors.log.enable": "true"
   }
 }
-

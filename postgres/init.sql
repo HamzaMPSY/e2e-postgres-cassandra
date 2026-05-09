@@ -30,8 +30,15 @@ CREATE TABLE IF NOT EXISTS order_items (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS debezium_signal (
+  id VARCHAR(42) PRIMARY KEY,
+  type VARCHAR(32) NOT NULL,
+  data VARCHAR(2048)
+);
+
 ALTER TABLE customers REPLICA IDENTITY FULL;
 ALTER TABLE orders REPLICA IDENTITY FULL;
 ALTER TABLE order_items REPLICA IDENTITY FULL;
+ALTER TABLE debezium_signal REPLICA IDENTITY FULL;
 
-CREATE PUBLICATION dbz_omnicare_orders FOR TABLE customers, orders, order_items;
+CREATE PUBLICATION dbz_omnicare_orders FOR TABLE customers, orders, order_items, debezium_signal;

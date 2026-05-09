@@ -11,8 +11,13 @@
     "topic.prefix": "cdc.local.omnicare.postgres",
     "slot.name": "dbz_omnicare_orders",
     "publication.name": "dbz_omnicare_orders",
-    "table.include.list": "public.customers,public.orders,public.order_items",
+    "table.include.list": "public.customers,public.orders,public.order_items,public.debezium_signal",
     "snapshot.mode": "initial",
+    "signal.enabled.channels": "source,kafka",
+    "signal.data.collection": "public.debezium_signal",
+    "signal.kafka.bootstrap.servers": "${KAFKA_BOOTSTRAP_SERVERS}",
+    "signal.kafka.groupId": "omnicare-postgres-signals",
+    "signal.kafka.topic": "${DEBEZIUM_SIGNAL_TOPIC}",
     "heartbeat.interval.ms": "10000",
     "include.schema.changes": "true",
     "tombstones.on.delete": "true",
@@ -21,4 +26,3 @@
     "errors.log.enable": "true"
   }
 }
-

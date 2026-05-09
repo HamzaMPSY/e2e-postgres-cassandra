@@ -311,7 +311,7 @@ Acceptance criteria:
 
 Priority: P2
 
-Status: Not started
+Status: Done
 
 Scope:
 
@@ -322,7 +322,12 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Runbooks are executable by an engineer who did not write the pipeline.
+- [x] `docs/v2/RUNBOOKS.md` covers replay, resnapshot, lost source log position, and bad transformer release recovery.
+- [x] `scripts/cdc-replay.sh` provides a repeatable replay command with fresh consumer groups.
+- [x] `scripts/request-resnapshot.sh` submits Debezium incremental snapshot signals.
+- [x] `scripts/connect-connector.sh` provides safe connector status/config/offsets/pause/resume/stop/restart/reset/delete operations.
+- [x] Active connector templates are configured with source and Kafka signal channels, source signal tables/collections, and unique Kafka signal group IDs.
+- [x] Config validation enforces production-safe resnapshot signaling for active local connectors.
 
 ### CDCV2-014: Add security hardening
 
@@ -362,8 +367,8 @@ Acceptance criteria:
 
 ## Recommended Next Tickets
 
-1. `CDCV2-013`: add replay/resnapshot runbooks using the replay flow validated on 2026-05-08.
-2. `CDCV2-014`: add production security hardening: TLS, Kafka ACLs, secrets manager, source least privilege, and PII classification.
-3. `CDCV2-012`: add AWS/GCP/datacenter deployment templates.
-4. `CDCV2-008B`: add long-running generator controls for rate, skew, and failure scenarios.
-5. `CDCV2-002`: replace weak local health status with stronger service healthchecks where images support it.
+1. `CDCV2-014`: add production security hardening: TLS, Kafka ACLs, secrets manager, source least privilege, and PII classification.
+2. `CDCV2-012`: add AWS/GCP/datacenter deployment templates.
+3. `CDCV2-008B`: add long-running generator controls for rate, skew, and failure scenarios.
+4. `CDCV2-002`: replace weak local health status with stronger service healthchecks where images support it.
+5. `CDCV2-015`: add production MongoDB authentication.

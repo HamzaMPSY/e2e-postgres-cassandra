@@ -123,11 +123,27 @@ Host-side MongoDB writes use `directConnection=true` because the local replica s
 
 ## Local Migrations
 
-Fresh containers apply `postgres/init.sql` and `mysql/init.sql`. If an older local container already exists, apply the migration SQL under `migrations/local` or recreate that source container. The migrations capture schema compatibility fixes found during E2E testing:
+Fresh containers apply the init files under `postgres`, `mysql`, `mongo`, and `oracle`. If an older local container already exists, apply the migration files under `migrations/local` or recreate that source container. The migrations capture schema compatibility fixes found during E2E testing:
 
 - `postgres/001_order_item_context.sql`: denormalized order context needed by order-line facts.
+- `postgres/002_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
 - `mysql/001_payment_context.sql`: payment context and widened prefixed IDs.
 - `mysql/002_debezium_privileges.sql`: local Debezium snapshot/binlog privileges.
+- `mysql/003_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
+- `mongo/001_debezium_signal.js`: Debezium source signal collection for incremental snapshots.
+
+## Recovery Runbooks
+
+Replay, resnapshot, and recovery operations are documented in `docs/v2/RUNBOOKS.md`.
+
+Common commands:
+
+```bash
+scripts/cdc-replay.sh --topic cdc.local.omnicare.postgres.public.customers --max-messages 1000
+scripts/request-resnapshot.sh --connector postgres-orders-local --data-collection public.customers
+scripts/connect-connector.sh status postgres-orders-local
+scripts/connect-connector.sh offsets postgres-orders-local
+```
 
 ## Latest Verified Smoke Test
 

@@ -34,7 +34,12 @@ class ValidateConfigTest(unittest.TestCase):
                     "topic.prefix": "cdc.local.omnicare.postgres",
                     "publication.name": "dbz_omnicare_orders",
                     "slot.name": "dbz_omnicare_orders",
-                    "table.include.list": "public.customers,public.order_items,billing.payments,engagement.support_tickets"
+                    "signal.enabled.channels": "source,kafka",
+                    "signal.data.collection": "public.debezium_signal",
+                    "signal.kafka.bootstrap.servers": "${KAFKA_BOOTSTRAP_SERVERS}",
+                    "signal.kafka.groupId": "omnicare-postgres-signals",
+                    "signal.kafka.topic": "${DEBEZIUM_SIGNAL_TOPIC}",
+                    "table.include.list": "public.customers,public.order_items,billing.payments,engagement.support_tickets,public.debezium_signal"
                   }
                 }
                 """,
@@ -52,6 +57,50 @@ class ValidateConfigTest(unittest.TestCase):
         self.assertEqual(
             placeholders({"a": "${ONE}", "b": ["${TWO}", {"c": "${THREE}"}]}),
             {"ONE", "TWO", "THREE"},
+        )
+
+    def test_detects_duplicate_signal_group_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "connectors").mkdir()
+            (root / ".env.example").write_text(
+                "\n".join(f"{name}=value" for name in REQUIRED_ENV_VARS),
+                encoding="utf-8",
+            )
+            connector_template = """
+                {{
+                  "name": "{name}",
+                  "config": {{
+                    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                    "plugin.name": "pgoutput",
+                    "topic.prefix": "cdc.local.omnicare.postgres",
+                    "publication.name": "dbz_omnicare_orders",
+                    "slot.name": "{slot}",
+                    "signal.enabled.channels": "source,kafka",
+                    "signal.data.collection": "public.debezium_signal",
+                    "signal.kafka.bootstrap.servers": "${{KAFKA_BOOTSTRAP_SERVERS}}",
+                    "signal.kafka.groupId": "duplicate-signal-group",
+                    "signal.kafka.topic": "${{DEBEZIUM_SIGNAL_TOPIC}}",
+                    "table.include.list": "public.customers,public.order_items,billing.payments,engagement.support_tickets,public.debezium_signal"
+                  }}
+                }}
+                """
+            (root / "connectors" / "a.json").write_text(
+                connector_template.format(name="postgres-a", slot="slot_a"),
+                encoding="utf-8",
+            )
+            (root / "connectors" / "b.json").write_text(
+                connector_template.format(name="postgres-b", slot="slot_b"),
+                encoding="utf-8",
+            )
+
+            result = validate_repo(root)
+
+        self.assertTrue(
+            any(
+                "signal.kafka.groupId 'duplicate-signal-group' is already used" in error
+                for error in result.errors
+            )
         )
 
 

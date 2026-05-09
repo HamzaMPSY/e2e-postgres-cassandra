@@ -23,6 +23,7 @@ REQUIRED_ENV_VARS = {
     "CASSANDRA_CLUSTER_NAME",
     "CASSANDRA_DC",
     "KAFKA_BOOTSTRAP_SERVERS",
+    "DEBEZIUM_SIGNAL_TOPIC",
     "CASSANDRA_CONTACT_POINTS",
     "CASSANDRA_KEYSPACE",
     "CASSANDRA_LOCAL_DC",
@@ -62,6 +63,7 @@ def validate_repo(root: Path) -> ValidationResult:
 
     names: set[str] = set()
     captured_sources: set[str] = set()
+    signal_group_ids: dict[str, Path] = {}
 
     for path in connector_files:
         payload = load_json(path, errors)
@@ -81,7 +83,7 @@ def validate_repo(root: Path) -> ValidationResult:
             errors.append(f"{path}: missing config object")
             continue
 
-        validate_connector(path, config, env, captured_sources, errors, warnings)
+        validate_connector(path, config, env, captured_sources, signal_group_ids, errors, warnings)
 
     missing_sources = sorted(REQUIRED_SOURCE_COVERAGE - captured_sources)
     errors.extend(f"Missing connector source coverage: {source}" for source in missing_sources)
@@ -117,6 +119,7 @@ def validate_connector(
     config: dict[str, Any],
     env: dict[str, str],
     captured_sources: set[str],
+    signal_group_ids: dict[str, Path],
     errors: list[str],
     warnings: list[str],
 ) -> None:
@@ -135,14 +138,20 @@ def validate_connector(
         require_string(path, config, "plugin.name", errors)
         require_string(path, config, "publication.name", errors)
         require_string(path, config, "slot.name", errors)
+        require_resnapshot_signaling(path, config, "table.include.list", signal_group_ids, errors)
     elif connector_class and "MySqlConnector" in connector_class:
         collect_csv(config, "table.include.list", captured_sources)
         require_string(path, config, "database.server.id", errors)
         require_string(path, config, "schema.history.internal.kafka.topic", errors)
+        require_resnapshot_signaling(path, config, "table.include.list", signal_group_ids, errors)
     elif connector_class and "MongoDbConnector" in connector_class:
         collect_csv(config, "collection.include.list", captured_sources)
         require_string(path, config, "mongodb.connection.string", errors)
+        require_resnapshot_signaling(
+            path, config, "collection.include.list", signal_group_ids, errors
+        )
     elif connector_class and "OracleConnector" in connector_class:
+        require_resnapshot_signaling(path, config, "table.include.list", signal_group_ids, errors)
         warnings.append(f"{path}: Oracle connector is template-only and not validated locally")
     elif connector_class:
         errors.append(f"{path}: unsupported connector.class {connector_class!r}")
@@ -161,11 +170,45 @@ def require_string(
     return value.strip()
 
 
+def require_resnapshot_signaling(
+    path: Path,
+    config: dict[str, Any],
+    include_key: str,
+    signal_group_ids: dict[str, Path],
+    errors: list[str],
+) -> None:
+    channels = require_string(path, config, "signal.enabled.channels", errors)
+    channel_set = {part.strip() for part in channels.split(",")} if channels else set()
+    if channels and "source" not in channel_set:
+        errors.append(f"{path}: signal.enabled.channels must include 'source'")
+    if channels and "kafka" not in channel_set:
+        errors.append(f"{path}: signal.enabled.channels must include 'kafka'")
+    signal_data_collection = require_string(path, config, "signal.data.collection", errors)
+    if signal_data_collection and signal_data_collection not in csv_values(config, include_key):
+        errors.append(
+            f"{path}: signal.data.collection {signal_data_collection!r} must be listed in {include_key!r}"
+        )
+    require_string(path, config, "signal.kafka.bootstrap.servers", errors)
+    group_id = require_string(path, config, "signal.kafka.groupId", errors)
+    if group_id:
+        other_path = signal_group_ids.get(group_id)
+        if other_path:
+            errors.append(
+                f"{path}: signal.kafka.groupId {group_id!r} is already used by {other_path}"
+            )
+        signal_group_ids[group_id] = path
+    require_string(path, config, "signal.kafka.topic", errors)
+
+
 def collect_csv(config: dict[str, Any], key: str, target: set[str]) -> None:
+    target.update(csv_values(config, key))
+
+
+def csv_values(config: dict[str, Any], key: str) -> set[str]:
     value = config.get(key)
     if not isinstance(value, str):
-        return
-    target.update(part.strip() for part in value.split(",") if part.strip())
+        return set()
+    return {part.strip() for part in value.split(",") if part.strip()}
 
 
 def placeholders(value: Any) -> set[str]:
