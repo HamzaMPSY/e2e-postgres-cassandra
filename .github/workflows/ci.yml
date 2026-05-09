@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate connector JSON
+        run: |
+          python -m json.tool connectors/postgres-orders.json >/dev/null
+          python -m json.tool connectors/mysql-billing.json >/dev/null
+          python -m json.tool connectors/mongo-engagement.json >/dev/null
+          python -m json.tool connectors/oracle-erp.template.json >/dev/null
+
+      - name: Validate CDC config
+        run: python tools/validate_config.py
+
+      - name: Run transformer tests
+        working-directory: transformer
+        run: PYTHONPATH=src python -m unittest
+
+      - name: Run generator tests
+        working-directory: generator
+        run: PYTHONPATH=src python -m unittest
+
+      - name: Run dashboard tests
+        working-directory: dashboard
+        run: PYTHONPATH=app python -m unittest discover -s tests
+
+      - name: Run config validator tests
+        run: PYTHONPATH=tools python -m unittest discover -s tools/tests
+
+      - name: Compile Python modules
+        run: |
+          python -m py_compile transformer/src/omnicare_cdc/*.py
+          python -m py_compile generator/src/omnicare_generator/*.py
+          python -m py_compile dashboard/app/server.py
+          python -m py_compile tools/validate_config.py

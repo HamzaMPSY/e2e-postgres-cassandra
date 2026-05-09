@@ -277,7 +277,7 @@ Acceptance criteria:
 - [x] CI can run validation without starting Docker.
 - [x] Bad config fails fast with actionable errors.
 - [x] Required env vars, connector JSON shape, topic prefixes, placeholders, and active source coverage are checked.
-- [ ] Add CI workflow to run the validator automatically on push.
+- [x] Add CI workflow to run the validator automatically on push.
 
 ### CDCV2-012: Add cloud deployment templates
 
