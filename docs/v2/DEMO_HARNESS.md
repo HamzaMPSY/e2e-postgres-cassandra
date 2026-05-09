@@ -41,10 +41,18 @@ scripts/demo-e2e.sh \
 The dry run prints the planned commands and does not require containers:
 
 ```bash
-scripts/demo-e2e.sh --dry-run --env-file .env.example
+scripts/demo-e2e.sh \
+  --dry-run \
+  --env-file .env.example \
+  --max-events 2 \
+  --rate-per-second 1 \
+  --transformer-max-messages 10 \
+  --timeout-seconds 30
 ```
 
-CI covers the dry-run path and bash syntax. Live container execution stays manual because the stack is intentionally heavier than a normal pull-request job.
+CI covers the dry-run path and bash syntax. Live container execution is exposed as a manually gated workflow because the stack is intentionally heavier than a normal pull-request job.
+
+See `docs/v2/CI_E2E_SMOKE.md` for the pull-request and live runner profiles.
 
 ## Verification Gates
 

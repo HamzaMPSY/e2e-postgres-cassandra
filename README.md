@@ -50,6 +50,8 @@ scripts/demo-e2e.sh --max-events 25 --rate-per-second 5
 
 The harness starts the stack, registers connectors, generates source data, runs a bounded transformer smoke pass, verifies Cassandra and dashboard data, and writes `artifacts/demo-report.json`. Details are in `docs/v2/DEMO_HARNESS.md`.
 
+CI runs the harness in a container-free dry-run smoke profile on every push and pull request. A manually gated live Podman profile is documented in `docs/v2/CI_E2E_SMOKE.md` for prepared self-hosted runners.
+
 ## First Build Slice
 
 This initial V2 slice includes:

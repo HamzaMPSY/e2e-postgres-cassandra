@@ -62,6 +62,22 @@ class DemoHarnessTest(unittest.TestCase):
         self.assertIn("scripts/register-connectors.sh", result.stdout)
         self.assertIn("verify Cassandra row counts and dashboard API", result.stdout)
 
+    def test_ci_wires_e2e_smoke_profile(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        content = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        for expected in (
+            "E2E demo dry-run smoke",
+            "scripts/demo-e2e.sh",
+            "--dry-run",
+            "--env-file .env.example",
+            "Live Podman E2E demo",
+            "run-live-e2e",
+            "actions/upload-artifact@v4",
+            "artifacts/demo-report.json",
+        ):
+            self.assertIn(expected, content)
+
 
 if __name__ == "__main__":
     unittest.main()
