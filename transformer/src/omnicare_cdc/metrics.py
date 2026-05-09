@@ -11,6 +11,7 @@ class MetricsRegistry:
         self._lock = threading.Lock()
         self._messages: dict[str, int] = defaultdict(int)
         self._dlq_records: dict[str, int] = defaultdict(int)
+        self._validation_rejects: dict[tuple[str, str, str], int] = defaultdict(int)
         self._rows_written = 0
         self._write_latency_count = 0
         self._write_latency_sum = 0.0
@@ -26,6 +27,15 @@ class MetricsRegistry:
             self._messages["dlq"] += 1
             self._dlq_records[source_topic] += 1
 
+    def record_validation_reject(
+        self,
+        source_topic: str,
+        target_table: str,
+        error_code: str,
+    ) -> None:
+        with self._lock:
+            self._validation_rejects[(source_topic, target_table, error_code)] += 1
+
     def observe_cassandra_write(self, elapsed_seconds: float) -> None:
         with self._lock:
             self._write_latency_count += 1
@@ -36,6 +46,7 @@ class MetricsRegistry:
         with self._lock:
             messages = dict(self._messages)
             dlq_records = dict(self._dlq_records)
+            validation_rejects = dict(self._validation_rejects)
             rows_written = self._rows_written
             latency_count = self._write_latency_count
             latency_sum = self._write_latency_sum
@@ -66,6 +77,20 @@ class MetricsRegistry:
         for topic, count in sorted(dlq_records.items()):
             lines.append(
                 f'omnicare_transformer_dlq_records_total{{source_topic="{_label_value(topic)}"}} {count}'
+            )
+
+        lines.extend(
+            [
+                "# HELP omnicare_transformer_validation_rejects_total Star-row validation rejects.",
+                "# TYPE omnicare_transformer_validation_rejects_total counter",
+            ]
+        )
+        for (topic, table, code), count in sorted(validation_rejects.items()):
+            lines.append(
+                "omnicare_transformer_validation_rejects_total"
+                f'{{source_topic="{_label_value(topic)}",'
+                f'target_table="{_label_value(table)}",'
+                f'error_code="{_label_value(code)}"}} {count}'
             )
 
         lines.extend(

@@ -8,6 +8,7 @@ from .cassandra_writer import CassandraStarWriter
 from .dlq import DlqProducer, FailedRecord
 from .metrics import MetricsRegistry
 from .star_schema import to_star_rows
+from .validation import RowValidationError, validate_star_rows
 
 
 LOGGER = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class TransformerService:
 
     def process_message(self, message: Any) -> int:
         try:
-            rows = to_star_rows(message.topic(), message.value())
+            rows = validate_star_rows(to_star_rows(message.topic(), message.value()))
             write_started_at = time.perf_counter()
             try:
                 written = self._writer.write_rows(rows)
@@ -49,6 +50,7 @@ class TransformerService:
             self._dlq.publish(failed)
             self._consumer.commit(message=message, asynchronous=False)
             self._record_dlq(message.topic())
+            self._record_validation_rejects(message.topic(), exc)
             LOGGER.exception(
                 "CDC message sent to DLQ topic=%s partition=%s offset=%s",
                 message.topic(),
@@ -102,3 +104,13 @@ class TransformerService:
     def _record_dlq(self, source_topic: str) -> None:
         if self._metrics is not None:
             self._metrics.record_dlq(source_topic)
+
+    def _record_validation_rejects(self, source_topic: str, exc: BaseException) -> None:
+        if self._metrics is None or not isinstance(exc, RowValidationError):
+            return
+        for issue in exc.issues:
+            self._metrics.record_validation_reject(
+                source_topic=source_topic,
+                target_table=issue.table,
+                error_code=issue.code,
+            )

@@ -15,9 +15,12 @@ class FailedRecord:
     key: str | None
     value: str | None
     error: str
+    metadata: dict[str, Any] | None = None
 
     @classmethod
     def from_exception(cls, message: Any, exc: BaseException) -> FailedRecord:
+        metadata_factory = getattr(exc, "to_metadata", None)
+        metadata = metadata_factory() if callable(metadata_factory) else None
         return cls(
             topic=_call(message, "topic"),
             partition=_call(message, "partition"),
@@ -25,22 +28,26 @@ class FailedRecord:
             key=_decode(_call(message, "key")),
             value=_decode(_call(message, "value")),
             error=f"{type(exc).__name__}: {exc}",
+            metadata=metadata,
         )
 
     def to_json(self, include_payloads: bool = False) -> str:
         key = self.key if include_payloads else _redacted(self.key)
         value = self.value if include_payloads else _redacted(self.value)
+        payload = {
+            "failed_at": datetime.now(tz=UTC).isoformat(),
+            "topic": self.topic,
+            "partition": self.partition,
+            "offset": self.offset,
+            "key": key,
+            "value": value,
+            "error": self.error,
+            "traceback": traceback.format_exc(),
+        }
+        if self.metadata:
+            payload["metadata"] = self.metadata
         return json.dumps(
-            {
-                "failed_at": datetime.now(tz=UTC).isoformat(),
-                "topic": self.topic,
-                "partition": self.partition,
-                "offset": self.offset,
-                "key": key,
-                "value": value,
-                "error": self.error,
-                "traceback": traceback.format_exc(),
-            },
+            payload,
             default=str,
             sort_keys=True,
         )

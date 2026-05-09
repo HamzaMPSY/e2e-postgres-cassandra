@@ -52,6 +52,26 @@ class DlqTest(unittest.TestCase):
         self.assertEqual(json.loads(producer.produced[0]["value"])["value"], "[redacted]")
         self.assertEqual(producer.flushes, 1)
 
+    def test_failed_record_includes_validation_metadata(self) -> None:
+        record = FailedRecord(
+            topic="cdc.local.omnicare.mysql.billing.payments",
+            partition=0,
+            offset=42,
+            key="payment-1",
+            value='{"customer_id":"customer-1"}',
+            error="RowValidationError: negative amount",
+            metadata={
+                "validation_error_code": "negative_number",
+                "table": "fact_payment_by_day",
+                "field": "amount_cents",
+            },
+        )
+
+        payload = json.loads(record.to_json())
+
+        self.assertEqual(payload["metadata"]["validation_error_code"], "negative_number")
+        self.assertEqual(payload["metadata"]["table"], "fact_payment_by_day")
+
 
 if __name__ == "__main__":
     unittest.main()

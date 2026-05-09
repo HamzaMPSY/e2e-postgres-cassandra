@@ -13,6 +13,11 @@ class MetricsRegistryTest(unittest.TestCase):
 
         registry.record_success(rows_written=3)
         registry.record_dlq('cdc.local.bad"topic')
+        registry.record_validation_reject(
+            source_topic='cdc.local.bad"topic',
+            target_table="fact_payment_by_day",
+            error_code="negative_number",
+        )
         registry.observe_cassandra_write(0.25)
 
         metrics = registry.render_prometheus()
@@ -22,6 +27,10 @@ class MetricsRegistryTest(unittest.TestCase):
         self.assertIn("omnicare_transformer_rows_written_total 3", metrics)
         self.assertIn(
             'omnicare_transformer_dlq_records_total{source_topic="cdc.local.bad\\"topic"} 1',
+            metrics,
+        )
+        self.assertIn(
+            'omnicare_transformer_validation_rejects_total{source_topic="cdc.local.bad\\"topic",target_table="fact_payment_by_day",error_code="negative_number"} 1',
             metrics,
         )
         self.assertIn("omnicare_transformer_cassandra_write_latency_seconds_count 1", metrics)
