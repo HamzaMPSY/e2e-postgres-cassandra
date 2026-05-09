@@ -66,6 +66,7 @@ Use these steps when you want to test the full local CDC flow and watch data arr
 
 ```bash
 cp .env.example .env
+scripts/local-preflight.sh --env-file .env
 podman compose --env-file .env -f docker-compose.yaml up -d
 ```
 
@@ -128,6 +129,12 @@ For a container-free command preview:
 
 ```bash
 scripts/anomaly-e2e.sh --dry-run --env-file .env.example
+```
+
+For a full local readiness preview before starting containers:
+
+```bash
+scripts/local-preflight.sh --dry-run --env-file .env.example --skip-podman
 ```
 
 ### 5. Run long-running data generation
@@ -334,6 +341,7 @@ AWS, GCP, and datacenter deployment skeletons are documented in `docs/v2/DEPLOYM
 Common commands:
 
 ```bash
+scripts/local-preflight.sh --env-file .env --report-file artifacts/preflight-report.json
 scripts/cdc-replay.sh --topic cdc.local.omnicare.postgres.public.customers --max-messages 1000
 scripts/request-resnapshot.sh --connector postgres-orders-local --data-collection public.customers
 scripts/recover-bad-facts.sh --payment-id-prefix PAY-ANOM- --ticket-id-prefix TCK-ANOM- --yes

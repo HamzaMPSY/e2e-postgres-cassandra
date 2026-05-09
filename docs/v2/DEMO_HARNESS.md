@@ -27,6 +27,12 @@ The script expects a local env file:
 cp .env.example .env
 ```
 
+Before starting the container stack, run the local preflight. It validates required env keys, static contracts, shell syntax, and Podman Compose configuration, then writes `artifacts/preflight-report.json`.
+
+```bash
+scripts/local-preflight.sh --env-file .env
+```
+
 For a small demo:
 
 ```bash
@@ -42,6 +48,11 @@ scripts/demo-e2e.sh \
 The dry run prints the planned commands and does not require containers:
 
 ```bash
+scripts/local-preflight.sh \
+  --dry-run \
+  --env-file .env.example \
+  --skip-podman
+
 scripts/demo-e2e.sh \
   --dry-run \
   --env-file .env.example \

@@ -2,6 +2,14 @@
 
 The E2E validation is split into two profiles so pull-request CI stays fast while the project still has a production-like live path.
 
+The CI dry-run profile also runs:
+
+```bash
+scripts/local-preflight.sh --dry-run --env-file .env.example --skip-podman
+```
+
+That confirms the local demo preflight command path without requiring Podman on generic hosted runners.
+
 ## Pull Request Smoke
 
 GitHub Actions runs the `e2e-smoke` job on every push and pull request:
