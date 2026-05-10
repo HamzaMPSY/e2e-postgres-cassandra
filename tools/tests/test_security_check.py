@@ -19,7 +19,7 @@ class SecurityCheckTest(unittest.TestCase):
     def test_detects_literal_connector_password(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))
-            connector = root / "connectors" / "postgres-orders.json"
+            connector = root / "config" / "connectors" / "postgres-orders.json"
             payload = json.loads(connector.read_text(encoding="utf-8"))
             payload["config"]["database.password"] = "not_externalized"
             connector.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -120,7 +120,7 @@ class SecurityCheckTest(unittest.TestCase):
     def test_rejects_connector_error_message_logging(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))
-            connector = root / "connectors" / "postgres-orders.json"
+            connector = root / "config" / "connectors" / "postgres-orders.json"
             payload = json.loads(connector.read_text(encoding="utf-8"))
             payload["config"]["errors.log.include.messages"] = "true"
             connector.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -137,7 +137,7 @@ class SecurityCheckTest(unittest.TestCase):
     def test_rejects_production_connector_error_message_logging(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))
-            production_dir = root / "connectors" / "production"
+            production_dir = root / "config" / "connectors" / "production"
             production_dir.mkdir()
             connector = production_dir / "postgres-orders.json"
             connector.write_text(
@@ -154,7 +154,7 @@ class SecurityCheckTest(unittest.TestCase):
 
         self.assertTrue(
             any(
-                "connectors/production/postgres-orders.json" in error
+                "config/connectors/production/postgres-orders.json" in error
                 and "errors.log.include.messages must not be true" in error
                 for error in result.errors
             )
@@ -162,10 +162,10 @@ class SecurityCheckTest(unittest.TestCase):
 
 
 def _minimal_repo(root: Path) -> Path:
-    (root / "connectors").mkdir(parents=True)
+    (root / "config" / "connectors").mkdir(parents=True)
     (root / "docs" / "v2").mkdir(parents=True)
 
-    (root / "connectors" / "postgres-orders.json").write_text(
+    (root / "config" / "connectors" / "postgres-orders.json").write_text(
         json.dumps(
             {
                 "name": "postgres-orders-local",

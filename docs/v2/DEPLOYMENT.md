@@ -6,9 +6,9 @@ CDCV2-012 adds deployment skeletons for the three production environments discus
 
 | Environment | Template path | CDC capture | Stream backbone | Transform runtime | Secret provider |
 | --- | --- | --- | --- | --- | --- |
-| AWS | `deployments/aws` | MSK Connect with Debezium plugins, or DMS for migration-style replication | Amazon MSK | ECS, EKS, or AWS Batch | AWS Secrets Manager |
-| GCP | `deployments/gcp` | Datastream for managed capture, or Debezium on GKE for Kafka-compatible capture | Pub/Sub or Kafka-compatible service | Dataflow Flex Template or GKE | Secret Manager |
-| Datacenter Kubernetes | `deployments/datacenter/helm/omnicare-cdc` | Kafka Connect with Debezium on Strimzi | Strimzi Kafka | Kubernetes Deployment or Job | Vault / External Secrets |
+| AWS | `infra/deployments/aws` | MSK Connect with Debezium plugins, or DMS for migration-style replication | Amazon MSK | ECS, EKS, or AWS Batch | AWS Secrets Manager |
+| GCP | `infra/deployments/gcp` | Datastream for managed capture, or Debezium on GKE for Kafka-compatible capture | Pub/Sub or Kafka-compatible service | Dataflow Flex Template or GKE | Secret Manager |
+| Datacenter Kubernetes | `infra/deployments/datacenter/helm/omnicare-cdc` | Kafka Connect with Debezium on Strimzi | Strimzi Kafka | Kubernetes Deployment or Job | Vault / External Secrets |
 
 ## AWS Path
 
@@ -23,9 +23,9 @@ flowchart LR
   SM --> TRANSFORMER
 ```
 
-Use `deployments/aws` when Kafka topics are part of the long-lived platform contract. The Terraform skeleton creates MSK Connect worker configuration, connector placeholders, log groups, and runtime IAM policy boundaries. Connector configs are environment overlays so CDCV2-016 can add source-specific production templates without mixing secrets into this infrastructure layer.
+Use `infra/deployments/aws` when Kafka topics are part of the long-lived platform contract. The Terraform skeleton creates MSK Connect worker configuration, connector placeholders, log groups, and runtime IAM policy boundaries. Connector configs are environment overlays so CDCV2-016 can add source-specific production templates without mixing secrets into this infrastructure layer.
 
-Production Debezium connector templates are in `connectors/production/`. The AWS worker configuration enables the `secrets` config provider and connector client overrides so templates can reference AWS Secrets Manager values and Kafka TLS material without embedding secrets in connector JSON.
+Production Debezium connector templates are in `config/connectors/production/`. The AWS worker configuration enables the `secrets` config provider and connector client overrides so templates can reference AWS Secrets Manager values and Kafka TLS material without embedding secrets in connector JSON.
 
 ## GCP Path
 
@@ -40,7 +40,7 @@ flowchart LR
   SM --> DF
 ```
 
-Use `deployments/gcp` when managed Datastream and Dataflow operations are preferred. If exact Kafka-compatible Debezium event envelopes are mandatory, run Debezium on GKE and keep the transformer path aligned with the datacenter template.
+Use `infra/deployments/gcp` when managed Datastream and Dataflow operations are preferred. If exact Kafka-compatible Debezium event envelopes are mandatory, run Debezium on GKE and keep the transformer path aligned with the datacenter template.
 
 ## Datacenter Kubernetes Path
 
@@ -55,7 +55,7 @@ flowchart LR
   VAULT --> TRANSFORMER
 ```
 
-Use `deployments/datacenter/helm/omnicare-cdc` when the organization owns Kubernetes and Kafka operations. The Helm skeleton defines Strimzi Kafka/KafkaConnect, TLS users, ACLs for the transformer, and runtime deployments for the transformer and dashboard.
+Use `infra/deployments/datacenter/helm/omnicare-cdc` when the organization owns Kubernetes and Kafka operations. The Helm skeleton defines Strimzi Kafka/KafkaConnect, TLS users, ACLs for the transformer, and runtime deployments for the transformer and dashboard.
 
 The Strimzi KafkaConnect template enables the Kubernetes secret config provider and connector client overrides. In datacenter deployments, replace the example provider with the approved Vault or External Secrets integration if Kubernetes Secrets are only a synchronization target.
 

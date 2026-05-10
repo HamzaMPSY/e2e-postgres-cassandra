@@ -9,7 +9,7 @@ class SourceConstraintsTest(unittest.TestCase):
         self.root = Path(__file__).resolve().parents[2]
 
     def test_mysql_billing_has_non_negative_financial_checks(self) -> None:
-        content = (self.root / "mysql" / "init.sql").read_text(encoding="utf-8")
+        content = (self.root / "db" / "mysql" / "init.sql").read_text(encoding="utf-8")
 
         self.assertIn("CHECK (amount_cents >= 0)", content)
         self.assertIn("CHECK (payment_status IN ('captured', 'failed', 'pending'))", content)
@@ -21,7 +21,7 @@ class SourceConstraintsTest(unittest.TestCase):
         )
 
     def test_mongo_support_tickets_have_strict_json_schema(self) -> None:
-        content = (self.root / "mongo" / "init.js").read_text(encoding="utf-8")
+        content = (self.root / "db" / "mongo" / "init.js").read_text(encoding="utf-8")
 
         self.assertIn("supportTicketValidator", content)
         self.assertIn(
@@ -39,7 +39,7 @@ class SourceConstraintsTest(unittest.TestCase):
     def test_compose_runs_committed_mongo_initializer(self) -> None:
         content = (self.root / "docker-compose.yaml").read_text(encoding="utf-8")
 
-        self.assertIn("./mongo/init.js:/opt/omnicare/mongo-init.js:ro", content)
+        self.assertIn("./db/mongo/init.js:/opt/omnicare/mongo-init.js:ro", content)
         self.assertIn("/opt/omnicare/mongo-init.js", content)
 
 

@@ -51,10 +51,10 @@ REQUIRED_SOURCE_COVERAGE = {
 }
 
 REQUIRED_PRODUCTION_CONNECTORS = {
-    "connectors/production/postgres-orders.json",
-    "connectors/production/mysql-billing.json",
-    "connectors/production/mongo-engagement.json",
-    "connectors/production/oracle-erp.json",
+    "config/connectors/production/postgres-orders.json",
+    "config/connectors/production/mysql-billing.json",
+    "config/connectors/production/mongo-engagement.json",
+    "config/connectors/production/oracle-erp.json",
 }
 
 
@@ -79,9 +79,9 @@ def validate_repo(root: Path) -> ValidationResult:
         if not (root / relative).is_file():
             errors.append(f"Missing production connector template: {relative}")
 
-    connector_files = sorted((root / "connectors").rglob("*.json"))
+    connector_files = sorted((root / "config" / "connectors").rglob("*.json"))
     if not connector_files:
-        errors.append("No connector JSON files found under connectors/")
+        errors.append("No connector JSON files found under config/connectors/")
         return ValidationResult(errors=errors, warnings=warnings)
 
     names: set[str] = set()

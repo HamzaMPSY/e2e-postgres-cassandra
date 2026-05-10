@@ -149,7 +149,7 @@ Trino exposes Cassandra tables to Superset. This gives an interview-friendly sep
 
 ## Schema Governance
 
-The CDC contract is committed as `contracts/cdc-data-contracts.json` and validated by `tools/validate_contracts.py`.
+The CDC contract is committed as `config/contracts/cdc-data-contracts.json` and validated by `tools/validate_contracts.py`.
 
 It ties together:
 
@@ -175,7 +175,7 @@ Prometheus exports the same quality status through `omnicare_data_quality_*` met
 RDS/Aurora/EC2 DBs -> MSK Connect/Debezium or DMS -> MSK -> transformer on ECS/EKS/EMR -> Cassandra/Astra/Keyspaces -> Trino/Superset
 ```
 
-Template path: `deployments/aws`
+Template path: `infra/deployments/aws`
 
 ### GCP
 
@@ -183,7 +183,7 @@ Template path: `deployments/aws`
 Cloud SQL/Oracle/SQL Server/Mongo sources -> Datastream or Debezium on GKE -> Pub/Sub or Kafka -> Dataflow/transformer -> Cassandra/Astra -> Trino/Superset
 ```
 
-Template path: `deployments/gcp`
+Template path: `infra/deployments/gcp`
 
 ### Datacenter
 
@@ -191,7 +191,7 @@ Template path: `deployments/gcp`
 Source DBs -> Kafka Connect on Kubernetes/VMs -> Kafka/Schema Registry -> transformer -> Cassandra -> Trino/Superset
 ```
 
-Template path: `deployments/datacenter/helm/omnicare-cdc`
+Template path: `infra/deployments/datacenter/helm/omnicare-cdc`
 
 ## Non-Goals for First Build Slice
 
@@ -201,4 +201,4 @@ Template path: `deployments/datacenter/helm/omnicare-cdc`
 - Oracle container running by default.
 - Exactly-once end-to-end claims.
 
-Remaining execution tasks are tracked locally in `.tickets/board.md`. The committed repo keeps implementation docs, templates, and validation only.
+The committed repo keeps implementation docs, templates, and validation only.

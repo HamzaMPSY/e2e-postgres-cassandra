@@ -526,7 +526,7 @@ AWS config handling:
 - Store connector secrets in AWS Secrets Manager.
 - Use IAM roles for MSK Connect.
 - Store connector JSON/YAML in Git.
-- Deploy with Terraform/CDK/CloudFormation. This repo includes a starter Terraform skeleton under `deployments/aws`.
+- Deploy with Terraform/CDK/CloudFormation. This repo includes a starter Terraform skeleton under `infra/deployments/aws`.
 - Use CloudWatch for managed service metrics and Prometheus/Grafana for Kafka/JMX where needed.
 
 ### 6.2 GCP architecture
@@ -562,7 +562,7 @@ GCP config handling:
 
 - Store secrets in Secret Manager.
 - Use private connectivity: VPC peering, Private Service Connect, VPN, or Interconnect.
-- Keep stream definitions and Dataflow templates in Terraform. This repo includes a starter Terraform skeleton under `deployments/gcp`.
+- Keep stream definitions and Dataflow templates in Terraform. This repo includes a starter Terraform skeleton under `infra/deployments/gcp`.
 - Monitor stream freshness, errors, and Dataflow backlog in Cloud Monitoring.
 
 ### 6.3 On-prem / datacenter architecture
@@ -599,7 +599,7 @@ Datacenter requirements:
 - Prometheus/Grafana for JMX metrics.
 - Centralized logs and alerting.
 - Disaster recovery cluster or backup/restore strategy.
-- This repo includes a starter Strimzi/Helm skeleton under `deployments/datacenter/helm/omnicare-cdc`.
+- This repo includes a starter Strimzi/Helm skeleton under `infra/deployments/datacenter/helm/omnicare-cdc`.
 
 ## 7. Configuration Management
 
@@ -613,7 +613,7 @@ cdc/
     dev/
     qa/
     prod/
-  connectors/
+  config/connectors/
     postgres-his-drugs.yaml
     oracle-claims.yaml
     sqlserver-crm-customer.yaml
@@ -967,7 +967,7 @@ Each CDC pipeline should publish metadata:
 
 ### Phase 1: Make the local demo deterministic
 
-- Move Postgres DDL from README into `postgres/init.sql`.
+- Move Postgres DDL from README into `db/postgres/init.sql`.
 - Add Cassandra init CQL.
 - Add a startup script that waits for Postgres before starting the generator.
 - Remove hard-coded credentials from Python and Docker Compose.
@@ -1000,7 +1000,7 @@ Each CDC pipeline should publish metadata:
 
 ### Phase 4: Cloud/on-prem deployment
 
-- Start from the committed templates under `deployments/aws`, `deployments/gcp`, and `deployments/datacenter/helm/omnicare-cdc`.
+- Start from the committed templates under `infra/deployments/aws`, `infra/deployments/gcp`, and `infra/deployments/datacenter/helm/omnicare-cdc`.
 - Store secrets in the platform secret manager.
 - Deploy connectors from CI/CD.
 - Add canary connector and smoke tests.
@@ -1210,10 +1210,10 @@ Then they would choose tools:
 
 ## 17. References
 
-- Debezium PostgreSQL connector: https://debezium.io/documentation/reference/stable/connectors/postgresql.html
-- Debezium SQL Server connector: https://debezium.io/documentation/reference/stable/connectors/sqlserver.html
-- Debezium Oracle connector: https://debezium.io/documentation/reference/stable/connectors/oracle.html
-- Debezium MySQL connector: https://debezium.io/documentation/reference/stable/connectors/mysql.html
+- Debezium PostgreSQL connector: https://debezium.io/documentation/reference/stable/config/connectors/postgresql.html
+- Debezium SQL Server connector: https://debezium.io/documentation/reference/stable/config/connectors/sqlserver.html
+- Debezium Oracle connector: https://debezium.io/documentation/reference/stable/config/connectors/oracle.html
+- Debezium MySQL connector: https://debezium.io/documentation/reference/stable/config/connectors/mysql.html
 - Debezium monitoring: https://debezium.io/documentation/reference/stable/operations/monitoring.html
 - Confluent Kafka Connect concepts and DLQ: https://docs.confluent.io/platform/current/connect/index.html
 - Confluent Schema Registry compatibility: https://docs.confluent.io/platform/current/schema-registry/fundamentals/schema-evolution.html
@@ -1223,7 +1223,7 @@ Then they would choose tools:
 - GCP Datastream overview: https://docs.cloud.google.com/datastream/docs/overview
 - Microsoft SQL Server CDC: https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/about-change-data-capture-sql-server
 - PostgreSQL logical decoding: https://www.postgresql.org/docs/current/logicaldecoding.html
-- Oracle LogMiner: https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html
+- Oracle LogMiner: https://docs.oracle.com/en/database/db/oracle/oracle-database/23/sutil/oracle-logminer-utility.html
 - Oracle GoldenGate overview: https://docs.oracle.com/en/database/goldengate/core/26/coredoc/overview-oracle-goldengate.html
 - Spark Structured Streaming: https://spark.apache.org/docs/3.5.6/structured-streaming-programming-guide.html
 - AWS Secrets Manager: https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html

@@ -26,5 +26,5 @@ flowchart LR
 
 - Source credentials and TLS material come from Secrets Manager.
 - MSK Connect uses TLS in transit.
-- Connector configs are supplied through `var.connectors`; start from `connectors/production/` and resolve `${secrets:...}` values through the configured worker provider.
+- Connector configs are supplied through `var.connectors`; start from `config/connectors/production/` and resolve `${secrets:...}` values through the configured worker provider.
 - Transformer can run as ECS, EKS, or AWS Batch. This skeleton exposes the inputs those runtimes need without choosing one prematurely.

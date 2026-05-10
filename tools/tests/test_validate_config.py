@@ -23,12 +23,12 @@ class ValidateConfigTest(unittest.TestCase):
     def test_detects_missing_env_placeholder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "connectors").mkdir()
+            (root / "config" / "connectors").mkdir(parents=True)
             (root / ".env.example").write_text(
                 "\n".join(f"{name}=value" for name in REQUIRED_ENV_VARS - {"POSTGRES_USER"}),
                 encoding="utf-8",
             )
-            (root / "connectors" / "postgres.json").write_text(
+            (root / "config" / "connectors" / "postgres.json").write_text(
                 """
                 {
                   "name": "postgres-orders-local",
@@ -75,12 +75,12 @@ class ValidateConfigTest(unittest.TestCase):
     def test_rejects_incomplete_production_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "connectors" / "production").mkdir(parents=True)
+            (root / "config" / "connectors" / "production").mkdir(parents=True)
             (root / ".env.example").write_text(
                 "\n".join(f"{name}=value" for name in REQUIRED_ENV_VARS),
                 encoding="utf-8",
             )
-            (root / "connectors" / "production" / "postgres.json").write_text(
+            (root / "config" / "connectors" / "production" / "postgres.json").write_text(
                 """
                 {
                   "name": "postgres-orders-prod",
@@ -117,7 +117,7 @@ class ValidateConfigTest(unittest.TestCase):
     def test_detects_duplicate_signal_group_id(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "connectors").mkdir()
+            (root / "config" / "connectors").mkdir(parents=True)
             (root / ".env.example").write_text(
                 "\n".join(f"{name}=value" for name in REQUIRED_ENV_VARS),
                 encoding="utf-8",
@@ -140,11 +140,11 @@ class ValidateConfigTest(unittest.TestCase):
                   }}
                 }}
                 """
-            (root / "connectors" / "a.json").write_text(
+            (root / "config" / "connectors" / "a.json").write_text(
                 connector_template.format(name="postgres-a", slot="slot_a"),
                 encoding="utf-8",
             )
-            (root / "connectors" / "b.json").write_text(
+            (root / "config" / "connectors" / "b.json").write_text(
                 connector_template.format(name="postgres-b", slot="slot_b"),
                 encoding="utf-8",
             )

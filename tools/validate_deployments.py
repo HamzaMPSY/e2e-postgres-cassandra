@@ -7,59 +7,59 @@ from pathlib import Path
 
 
 REQUIRED_FILES = {
-    "deployments/README.md",
-    "deployments/aws/README.md",
-    "deployments/aws/main.tf",
-    "deployments/aws/variables.tf",
-    "deployments/aws/outputs.tf",
-    "deployments/aws/worker.properties",
-    "deployments/gcp/README.md",
-    "deployments/gcp/main.tf",
-    "deployments/gcp/variables.tf",
-    "deployments/gcp/outputs.tf",
-    "deployments/datacenter/helm/omnicare-cdc/Chart.yaml",
-    "deployments/datacenter/helm/omnicare-cdc/values.yaml",
-    "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-kafka.yaml",
-    "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml",
-    "deployments/datacenter/helm/omnicare-cdc/templates/kafka-users.yaml",
-    "deployments/datacenter/helm/omnicare-cdc/templates/transformer.yaml",
-    "deployments/datacenter/helm/omnicare-cdc/templates/dashboard.yaml",
+    "infra/deployments/README.md",
+    "infra/deployments/aws/README.md",
+    "infra/deployments/aws/main.tf",
+    "infra/deployments/aws/variables.tf",
+    "infra/deployments/aws/outputs.tf",
+    "infra/deployments/aws/worker.properties",
+    "infra/deployments/gcp/README.md",
+    "infra/deployments/gcp/main.tf",
+    "infra/deployments/gcp/variables.tf",
+    "infra/deployments/gcp/outputs.tf",
+    "infra/deployments/datacenter/helm/omnicare-cdc/Chart.yaml",
+    "infra/deployments/datacenter/helm/omnicare-cdc/values.yaml",
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/strimzi-kafka.yaml",
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml",
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/kafka-users.yaml",
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/transformer.yaml",
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/dashboard.yaml",
     "docs/v2/DEPLOYMENT.md",
     "docs/v2/CONNECTOR_TEMPLATES.md",
 }
 
 REQUIRED_PATTERNS = {
-    "deployments/aws/main.tf": [
+    "infra/deployments/aws/main.tf": [
         "aws_mskconnect_connector",
         "kafka_cluster_encryption_in_transit",
         "aws_iam_policy",
         "security-controls.json",
     ],
-    "deployments/aws/worker.properties": [
+    "infra/deployments/aws/worker.properties": [
         "config.providers=secrets",
         "connector.client.config.override.policy=All",
         "errors.log.include.messages=false",
     ],
-    "deployments/gcp/main.tf": [
+    "infra/deployments/gcp/main.tf": [
         "google_datastream_stream",
         "google_dataflow_flex_template_job",
         "google_secret_manager",
         "security-controls.json",
     ],
-    "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-kafka.yaml": [
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/strimzi-kafka.yaml": [
         "kind: Kafka",
         "kind: KafkaNodePool",
         "authorization:",
         "tls: true",
     ],
-    "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml": [
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml": [
         "kind: KafkaConnect",
         "config.providers: secrets",
         "connector.client.config.override.policy: All",
         "errors.log.include.messages: false",
         "authentication:",
     ],
-    "deployments/datacenter/helm/omnicare-cdc/templates/kafka-users.yaml": [
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/kafka-users.yaml": [
         "kind: KafkaUser",
         "patternType: prefix",
         "dlq.prod.omnicare.transformer",
@@ -68,12 +68,12 @@ REQUIRED_PATTERNS = {
         "AWS",
         "GCP",
         "Datacenter Kubernetes",
-        "deployments/aws",
-        "deployments/gcp",
-        "deployments/datacenter/helm/omnicare-cdc",
+        "infra/deployments/aws",
+        "infra/deployments/gcp",
+        "infra/deployments/datacenter/helm/omnicare-cdc",
     ],
     "docs/v2/CONNECTOR_TEMPLATES.md": [
-        "connectors/production/",
+        "config/connectors/production/",
         "config.providers=secrets",
         "errors.log.include.messages=false",
         "Source TLS",
@@ -117,7 +117,7 @@ def validate_deployments(root: Path) -> ValidationResult:
 
 
 def validate_no_unsafe_template_values(root: Path, errors: list[str]) -> None:
-    deployment_root = root / "deployments"
+    deployment_root = root / "infra" / "deployments"
     if not deployment_root.exists():
         return
     for path in sorted(deployment_root.rglob("*")):

@@ -9,7 +9,7 @@ Source database object
   -> Cassandra serving-table contract
 ```
 
-The contract lives in `contracts/cdc-data-contracts.json`. It is intentionally JSON so CI, deployment pipelines, and interview demos can inspect the same artifact.
+The contract lives in `config/contracts/cdc-data-contracts.json`. It is intentionally JSON so CI, deployment pipelines, and interview demos can inspect the same artifact.
 
 ## What The Contract Covers
 
@@ -57,11 +57,11 @@ The validator checks that:
 - Every connector table or collection has a source contract, excluding Debezium signal tables.
 - Every materialized source has a transformer `_MAPPERS` entry.
 - Every materialized target table has a target contract.
-- Every target contract exists in `cassandra/schema.cql`.
+- Every target contract exists in `db/cassandra/schema.cql`.
 - Required target columns and primary-key columns exist in Cassandra.
 - Required `sourceQualityRules` exist for quality-sensitive sources.
-- MySQL `sourceQualityRules` match `CHECK` constraints in `mysql/init.sql`.
-- Mongo `sourceQualityRules` match the strict `support_tickets` JSON schema in `mongo/init.js`.
+- MySQL `sourceQualityRules` match `CHECK` constraints in `db/mysql/init.sql`.
+- Mongo `sourceQualityRules` match the strict `support_tickets` JSON schema in `db/mongo/init.js`.
 - Topic prefixes match the project naming contract.
 - Key fields are included in required source fields.
 

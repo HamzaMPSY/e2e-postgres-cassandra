@@ -52,7 +52,7 @@ Connector secrets that must never be committed:
 - Cassandra usernames, passwords, and TLS private keys.
 - Dashboard administrator passwords and session-signing secrets.
 
-Production connector templates under `connectors/production/` must use config provider references instead of local environment substitution. They must also declare source TLS settings, Kafka producer/signal TLS settings, and safe logging defaults. `tools/validate_config.py` rejects templates that miss those controls.
+Production connector templates under `config/connectors/production/` must use config provider references instead of local environment substitution. They must also declare source TLS settings, Kafka producer/signal TLS settings, and safe logging defaults. `tools/validate_config.py` rejects templates that miss those controls.
 
 ## Kafka ACL Model
 

@@ -2,8 +2,8 @@
 
 CDCV2-016 keeps local demo connector files separate from production templates:
 
-- `connectors/*.json`: local Compose connectors rendered by `scripts/register-connectors.sh`.
-- `connectors/production/*.json`: production-ready templates that assume Kafka Connect config providers, TLS, and explicit redacted logging defaults.
+- `config/connectors/*.json`: local Compose connectors rendered by `scripts/register-connectors.sh`.
+- `config/connectors/production/*.json`: production-ready templates that assume Kafka Connect config providers, TLS, and explicit redacted logging defaults.
 
 The production templates are not meant to be registered with `envsubst`. They should be applied by the target platform after the Kafka Connect worker has a secret provider installed.
 
@@ -57,7 +57,7 @@ python tools/security_check.py
 python tools/validate_deployments.py
 ```
 
-`tools/validate_config.py` validates production templates recursively under `connectors/production/`. It rejects missing config provider references, missing Kafka TLS producer/signal settings, incomplete source TLS settings, and unsafe connector logging defaults.
+`tools/validate_config.py` validates production templates recursively under `config/connectors/production/`. It rejects missing config provider references, missing Kafka TLS producer/signal settings, incomplete source TLS settings, and unsafe connector logging defaults.
 
 ## Promotion Flow
 

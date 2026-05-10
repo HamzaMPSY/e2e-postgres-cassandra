@@ -25,6 +25,19 @@ The original project demonstrated Postgres to Cassandra CDC. This version turns 
 - Browser dashboard and observability starter stack.
 - Production runbooks and deployment templates.
 
+## Repository Layout
+
+```text
+apps/                  Runnable services: dashboard, generator, transformer
+config/                CDC connector templates and data contracts
+db/                    Source database init files, Cassandra schema, migrations
+infra/                 Deployment, observability, and Trino assets
+docs/                  Architecture, runbooks, and production notes
+scripts/               Local operator and demo shell commands
+tools/                 Validation, quality-gate, and status utilities
+legacy/                Original v1 experiment kept for reference
+```
+
 ## Quick Start
 
 ```bash
@@ -154,7 +167,7 @@ scripts/local-preflight.sh --dry-run --env-file .env.example --skip-podman
 Install the generator once:
 
 ```bash
-cd generator
+cd apps/generator
 python -m pip install -e .
 cd ..
 ```
@@ -211,10 +224,10 @@ python tools/security_check.py
 python tools/validate_deployments.py
 python tools/validate_contracts.py
 PYTHONPATH=tools python -m unittest discover -s tools/tests
-(cd transformer && PYTHONPATH=src python -m unittest)
-(cd generator && PYTHONPATH=src python -m unittest)
-(cd dashboard && PYTHONPATH=app python -m unittest discover -s tests)
-PYTHONPATH=observability/exporter python -m unittest discover -s observability/exporter/tests
+(cd apps/transformer && PYTHONPATH=src python -m unittest)
+(cd apps/generator && PYTHONPATH=src python -m unittest)
+(cd apps/dashboard && PYTHONPATH=app python -m unittest discover -s tests)
+PYTHONPATH=infra/observability/exporter python -m unittest discover -s infra/observability/exporter/tests
 ```
 
 ### 8. Stop or reset local containers
@@ -236,7 +249,7 @@ podman compose --env-file .env -f docker-compose.yaml down -v
 This initial V2 slice includes:
 
 - Architecture docs.
-- Ignored local ticket board for execution tracking.
+- Local-only execution notes stay out of the committed docs.
 - Local Compose skeleton.
 - Source DB init scripts.
 - Cassandra schema.
@@ -247,7 +260,7 @@ This initial V2 slice includes:
 ## Test Transformer
 
 ```bash
-cd transformer
+cd apps/transformer
 PYTHONPATH=src python -m unittest
 ```
 
@@ -256,7 +269,7 @@ PYTHONPATH=src python -m unittest
 Install the transformer in a virtual environment:
 
 ```bash
-cd transformer
+cd apps/transformer
 python -m pip install -e .
 omnicare-cdc-transformer
 ```
@@ -290,7 +303,7 @@ ENV_FILE=.env scripts/register-connectors.sh
 
 In production, prefer Kafka Connect config providers or a platform secrets integration instead of rendering secrets into JSON files.
 
-Production connector templates live under `connectors/production/`. They use config provider references for secrets, source/Kafka TLS settings, and redacted connector logging defaults. The contract is documented in `docs/v2/CONNECTOR_TEMPLATES.md`.
+Production connector templates live under `config/connectors/production/`. They use config provider references for secrets, source/Kafka TLS settings, and redacted connector logging defaults. The contract is documented in `docs/v2/CONNECTOR_TEMPLATES.md`.
 
 Validate connector templates and required environment variables without starting containers:
 
@@ -300,14 +313,14 @@ python tools/security_check.py
 python tools/validate_contracts.py
 ```
 
-CDC source and Cassandra serving-table contracts live in `contracts/cdc-data-contracts.json`. The governance rules, source quality coverage, and schema-change checklist are documented in `docs/v2/SCHEMA_GOVERNANCE.md` and `docs/v2/SOURCE_CONTRACT_HARDENING.md`.
+CDC source and Cassandra serving-table contracts live in `config/contracts/cdc-data-contracts.json`. The governance rules, source quality coverage, and schema-change checklist are documented in `docs/v2/SCHEMA_GOVERNANCE.md` and `docs/v2/SOURCE_CONTRACT_HARDENING.md`.
 
 ## Generate Demo Data
 
 Install and run the generator:
 
 ```bash
-cd generator
+cd apps/generator
 python -m pip install -e .
 omnicare-demo-generator --max-events 500 --rate-per-second 5
 ```
@@ -332,15 +345,15 @@ Host-side MongoDB writes use `directConnection=true` because the local replica s
 
 ## Local Migrations
 
-Fresh containers apply the init files under `postgres`, `mysql`, `mongo`, and `oracle`. If an older local container already exists, apply the migration files under `migrations/local` or recreate that source container. The migrations capture schema compatibility fixes found during E2E testing:
+Fresh containers apply the init files under `db/postgres`, `db/mysql`, `db/mongo`, and `db/oracle`. If an older local container already exists, apply the migration files under `db/migrations/local` or recreate that source container. The migrations capture schema compatibility fixes found during E2E testing:
 
-- `postgres/001_order_item_context.sql`: denormalized order context needed by order-line facts.
-- `postgres/002_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
-- `postgres/003_inventory_fallback.sql`: optional local inventory tables when the Oracle profile is not active.
-- `mysql/001_payment_context.sql`: payment context and widened prefixed IDs.
-- `mysql/002_debezium_privileges.sql`: local Debezium snapshot/binlog privileges.
-- `mysql/003_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
-- `mongo/001_debezium_signal.js`: Debezium source signal collection for incremental snapshots.
+- `db/migrations/local/postgres/001_order_item_context.sql`: denormalized order context needed by order-line facts.
+- `db/migrations/local/postgres/002_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
+- `db/migrations/local/postgres/003_inventory_fallback.sql`: optional local inventory tables when the Oracle profile is not active.
+- `db/migrations/local/mysql/001_payment_context.sql`: payment context and widened prefixed IDs.
+- `db/migrations/local/mysql/002_debezium_privileges.sql`: local Debezium snapshot/binlog privileges.
+- `db/migrations/local/mysql/003_debezium_signal.sql`: Debezium source signal table for incremental snapshots.
+- `db/migrations/local/mongo/001_debezium_signal.js`: Debezium source signal collection for incremental snapshots.
 
 ## Recovery Runbooks
 
@@ -411,7 +424,7 @@ http://localhost:19090          # Prometheus
 http://localhost:13000          # Grafana, admin/change_me_grafana by default
 ```
 
-The exporter reads Kafka Connect status, Debezium JMX through Jolokia, and the dashboard API snapshot, then exposes connector health, task health, source lag, Debezium event throughput, dashboard API health, snapshot freshness, dashboard summary values, and data quality check results as Prometheus metrics. Kafka exporter adds consumer-group lag metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `observability/grafana/dashboards`.
+The exporter reads Kafka Connect status, Debezium JMX through Jolokia, and the dashboard API snapshot, then exposes connector health, task health, source lag, Debezium event throughput, dashboard API health, snapshot freshness, dashboard summary values, and data quality check results as Prometheus metrics. Kafka exporter adds consumer-group lag metrics. Grafana auto-provisions the `OmniCare CDC Operations` dashboard from `infra/observability/grafana/dashboards`.
 
 This is still a local observability profile, not a production monitoring platform. In production, wire the same metrics into managed Prometheus/Grafana or your platform standard, add retention, alert routing, SLOs, and service ownership.
 

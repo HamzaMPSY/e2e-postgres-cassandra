@@ -20,7 +20,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-for connector in connectors/postgres-orders.json connectors/mysql-billing.json connectors/mongo-engagement.json; do
+for connector in config/connectors/postgres-orders.json config/connectors/mysql-billing.json config/connectors/mongo-engagement.json; do
   echo "Registering $(basename "$connector")"
   rendered="$(mktemp)"
   config="$(mktemp)"

@@ -110,9 +110,9 @@ Use this when the source table/collection is correct but Kafka or Cassandra is m
 The source signal table/collection is required for watermarking incremental snapshots. Fresh local containers create it during init; existing local containers can apply:
 
 ```bash
-podman exec -i omnicare-postgres-orders psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < migrations/local/postgres/002_debezium_signal.sql
-podman exec -i omnicare-mysql-billing mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < migrations/local/mysql/003_debezium_signal.sql
-podman exec -i omnicare-mongo-engagement mongosh < migrations/local/mongo/001_debezium_signal.js
+podman exec -i omnicare-postgres-orders psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < db/migrations/local/postgres/002_debezium_signal.sql
+podman exec -i omnicare-mysql-billing mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < db/migrations/local/mysql/003_debezium_signal.sql
+podman exec -i omnicare-mongo-engagement mongosh < db/migrations/local/mongo/001_debezium_signal.js
 ```
 
 The local helper creates the Kafka signal topic before producing the signal. In production, create this topic through IaC with one partition, delete cleanup policy, producer ACL for the operator job, consumer ACL for Kafka Connect, and a unique `signal.kafka.groupId` for every connector that shares the topic.

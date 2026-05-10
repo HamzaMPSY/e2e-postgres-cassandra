@@ -46,7 +46,7 @@ The live job runs:
 
 ```bash
 cp .env.example .env
-python -m pip install -e generator
+python -m pip install -e apps/generator
 scripts/demo-e2e.sh \
   --env-file .env \
   --max-events 10 \

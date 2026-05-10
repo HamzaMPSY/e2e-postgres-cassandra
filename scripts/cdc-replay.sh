@@ -134,7 +134,7 @@ echo "Kafka: $KAFKA_BOOTSTRAP_SERVERS"
 echo "Cassandra: $CASSANDRA_CONTACT_POINTS / $CASSANDRA_KEYSPACE"
 
 if [[ "$dry_run" == true ]]; then
-  printf 'cd transformer && PYTHONPATH=src'
+  printf 'cd apps/transformer && PYTHONPATH=src'
   printf ' %q=%q' \
     KAFKA_BOOTSTRAP_SERVERS "$KAFKA_BOOTSTRAP_SERVERS" \
     KAFKA_GROUP_ID "$KAFKA_GROUP_ID" \
@@ -150,5 +150,5 @@ if [[ "$dry_run" == true ]]; then
   exit 0
 fi
 
-cd transformer
+cd apps/transformer
 PYTHONPATH=src "${cmd[@]}"

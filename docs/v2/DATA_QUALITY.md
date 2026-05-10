@@ -89,7 +89,7 @@ See `docs/v2/ANOMALY_TESTING.md` for the scenario list and pass criteria.
 
 ## Source Constraints vs Dashboard Gates
 
-Source constraints are the first line of defense for deterministic invariants owned by one source system: non-negative MySQL payment/refund amounts, stable billing enum domains, and required Mongo support-ticket fields. Those rules are documented in `docs/v2/SOURCE_CONTRACT_HARDENING.md` and declared in `contracts/cdc-data-contracts.json`.
+Source constraints are the first line of defense for deterministic invariants owned by one source system: non-negative MySQL payment/refund amounts, stable billing enum domains, and required Mongo support-ticket fields. Those rules are documented in `docs/v2/SOURCE_CONTRACT_HARDENING.md` and declared in `config/contracts/cdc-data-contracts.json`.
 
 Dashboard quality gates still matter because CDC is asynchronous and serving tables can be polluted by historical data, old connector releases, manual repair mistakes, or source systems that cannot enforce every rule immediately. The dashboard checks therefore validate the trusted serving model, not only the latest source write.
 

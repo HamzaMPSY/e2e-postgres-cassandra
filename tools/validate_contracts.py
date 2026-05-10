@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 
-CONTRACT_PATH = Path("contracts/cdc-data-contracts.json")
+CONTRACT_PATH = Path("config/contracts/cdc-data-contracts.json")
 CONNECTOR_IGNORE_SUFFIXES = {
     ".debezium_signal",
 }
@@ -100,12 +100,12 @@ def validate_contracts(root: Path) -> ValidationResult:
             )
 
     connector_collections = connector_data_collections(root, errors)
-    cassandra_tables = parse_cassandra_tables(root / "cassandra" / "schema.cql", errors)
+    cassandra_tables = parse_cassandra_tables(root / "db" / "cassandra" / "schema.cql", errors)
     mapper_tables = parse_transformer_mapper_tables(
-        root / "transformer" / "src" / "omnicare_cdc" / "star_schema.py", errors
+        root / "apps" / "transformer" / "src" / "omnicare_cdc" / "star_schema.py", errors
     )
-    mysql_constraints = parse_mysql_constraints(root / "mysql" / "init.sql", errors)
-    mongo_validator = parse_mongo_support_ticket_validator(root / "mongo" / "init.js", errors)
+    mysql_constraints = parse_mysql_constraints(root / "db" / "mysql" / "init.sql", errors)
+    mongo_validator = parse_mongo_support_ticket_validator(root / "db" / "mongo" / "init.js", errors)
 
     target_names = validate_target_contracts(target_contracts, cassandra_tables, errors)
     validate_source_contracts(
@@ -174,7 +174,7 @@ def validate_target_contracts(
 
         actual_columns = cassandra_tables.get(table)
         if actual_columns is None:
-            errors.append(f"{context}: target table {table!r} is missing from cassandra/schema.cql")
+            errors.append(f"{context}: target table {table!r} is missing from db/cassandra/schema.cql")
             continue
 
         missing_columns = sorted(set(required_columns) - actual_columns)
@@ -421,15 +421,15 @@ def validate_mysql_source_rule(
     rule = str(raw_rule.get("rule"))
     if rule == "non_negative":
         if field not in table_constraints["non_negative"]:
-            errors.append(f"{context}: mysql/init.sql lacks CHECK ({field} >= 0)")
+            errors.append(f"{context}: db/mysql/init.sql lacks CHECK ({field} >= 0)")
     elif rule == "enum":
         expected_values = set(require_string_list(raw_rule, "allowedValues", context, errors))
         actual_values = table_constraints["enums"].get(field)
         if actual_values is None:
-            errors.append(f"{context}: mysql/init.sql lacks CHECK ({field} IN (...))")
+            errors.append(f"{context}: db/mysql/init.sql lacks CHECK ({field} IN (...))")
         elif actual_values != expected_values:
             errors.append(
-                f"{context}: mysql/init.sql enum for {field} is {sorted(actual_values)}, expected {sorted(expected_values)}"
+                f"{context}: db/mysql/init.sql enum for {field} is {sorted(actual_values)}, expected {sorted(expected_values)}"
             )
 
 
@@ -448,34 +448,34 @@ def validate_mongo_source_rule(
     properties: dict[str, dict[str, Any]] = mongo_validator.get("properties", {})
     property_config = properties.get(field)
     if property_config is None:
-        errors.append(f"{context}: mongo/init.js lacks JSON schema property for {field}")
+        errors.append(f"{context}: db/mongo/init.js lacks JSON schema property for {field}")
         return
 
     if rule == "required":
         if field not in required_fields:
-            errors.append(f"{context}: mongo/init.js required list does not include {field}")
+            errors.append(f"{context}: db/mongo/init.js required list does not include {field}")
         expected_bson_type = raw_rule.get("bsonType")
         actual_bson_type = property_config.get("bsonType")
         if expected_bson_type and actual_bson_type != expected_bson_type:
             errors.append(
-                f"{context}: mongo/init.js bsonType for {field} is {actual_bson_type!r}, expected {expected_bson_type!r}"
+                f"{context}: db/mongo/init.js bsonType for {field} is {actual_bson_type!r}, expected {expected_bson_type!r}"
             )
     elif rule == "enum":
         expected_values = set(require_string_list(raw_rule, "allowedValues", context, errors))
         actual_values = property_config.get("enum")
         if actual_values is None:
-            errors.append(f"{context}: mongo/init.js lacks enum for {field}")
+            errors.append(f"{context}: db/mongo/init.js lacks enum for {field}")
         elif actual_values != expected_values:
             errors.append(
-                f"{context}: mongo/init.js enum for {field} is {sorted(actual_values)}, expected {sorted(expected_values)}"
+                f"{context}: db/mongo/init.js enum for {field} is {sorted(actual_values)}, expected {sorted(expected_values)}"
             )
 
 
 def connector_data_collections(root: Path, errors: list[str]) -> set[str]:
-    connectors_root = root / "connectors"
+    connectors_root = root / "config" / "connectors"
     collections: set[str] = set()
     if not connectors_root.exists():
-        errors.append("Missing connectors/ directory")
+        errors.append("Missing config/connectors/ directory")
         return collections
 
     for path in sorted(connectors_root.rglob("*.json")):

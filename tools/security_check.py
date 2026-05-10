@@ -144,7 +144,7 @@ def validate_transport_policy(controls: dict[str, Any], errors: list[str]) -> No
 
 def load_connector_names(root: Path, errors: list[str]) -> set[str]:
     names: set[str] = set()
-    for path in sorted((root / "connectors").glob("*.json")):
+    for path in sorted((root / "config" / "connectors").glob("*.json")):
         payload = load_json(path, errors)
         if not isinstance(payload, dict):
             continue
@@ -155,7 +155,7 @@ def load_connector_names(root: Path, errors: list[str]) -> set[str]:
 
 
 def validate_connector_configs(root: Path, errors: list[str]) -> None:
-    for path in sorted((root / "connectors").rglob("*.json")):
+    for path in sorted((root / "config" / "connectors").rglob("*.json")):
         payload = load_json(path, errors)
         if not isinstance(payload, dict):
             continue

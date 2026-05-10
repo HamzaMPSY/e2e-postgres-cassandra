@@ -27,7 +27,7 @@ Options:
 
 Prerequisites for a real run:
   cp .env.example .env
-  python -m pip install -e generator
+  python -m pip install -e apps/generator
   envsubst and jq available for connector registration
 USAGE
 }
@@ -359,7 +359,7 @@ fi
 if [[ "$dry_run" == true ]]; then
   log "dry-run complete"
   run env ENV_FILE="$env_file" CONNECT_URL=http://localhost:18083 scripts/register-connectors.sh
-  run_shell "cd generator && PYTHONPATH=src POSTGRES_DSN='$postgres_dsn' MYSQL_HOST=localhost MYSQL_PORT=13306 MYSQL_DATABASE='${MYSQL_DATABASE:-billing}' MYSQL_USER='${MYSQL_USER:-billing_cdc_demo}' MYSQL_PASSWORD='${MYSQL_PASSWORD:-change_me_billing}' MONGO_URI='$mongo_uri' python -m omnicare_generator.main --max-events '$max_events' --rate-per-second '$rate_per_second' --failure-rate 0.20 --refund-rate 0.15 --sla-breach-rate 0.20"
+  run_shell "cd apps/generator && PYTHONPATH=src POSTGRES_DSN='$postgres_dsn' MYSQL_HOST=localhost MYSQL_PORT=13306 MYSQL_DATABASE='${MYSQL_DATABASE:-billing}' MYSQL_USER='${MYSQL_USER:-billing_cdc_demo}' MYSQL_PASSWORD='${MYSQL_PASSWORD:-change_me_billing}' MONGO_URI='$mongo_uri' python -m omnicare_generator.main --max-events '$max_events' --rate-per-second '$rate_per_second' --failure-rate 0.20 --refund-rate 0.15 --sla-breach-rate 0.20"
   run podman compose --env-file "$env_file" -f docker-compose.yaml exec -T \
     -e KAFKA_GROUP_ID="$demo_group_id" \
     -e CDC_SOURCE_TOPICS="$active_topics" \
@@ -382,7 +382,7 @@ fi
 
 if [[ "$skip_generator" != true ]]; then
   log "generating demo source data"
-  run_shell "cd generator && PYTHONPATH=src POSTGRES_DSN='$postgres_dsn' MYSQL_HOST=localhost MYSQL_PORT=13306 MYSQL_DATABASE='${MYSQL_DATABASE:-billing}' MYSQL_USER='${MYSQL_USER:-billing_cdc_demo}' MYSQL_PASSWORD='${MYSQL_PASSWORD:-change_me_billing}' MONGO_URI='$mongo_uri' python -m omnicare_generator.main --max-events '$max_events' --rate-per-second '$rate_per_second' --failure-rate 0.20 --refund-rate 0.15 --sla-breach-rate 0.20"
+  run_shell "cd apps/generator && PYTHONPATH=src POSTGRES_DSN='$postgres_dsn' MYSQL_HOST=localhost MYSQL_PORT=13306 MYSQL_DATABASE='${MYSQL_DATABASE:-billing}' MYSQL_USER='${MYSQL_USER:-billing_cdc_demo}' MYSQL_PASSWORD='${MYSQL_PASSWORD:-change_me_billing}' MONGO_URI='$mongo_uri' python -m omnicare_generator.main --max-events '$max_events' --rate-per-second '$rate_per_second' --failure-rate 0.20 --refund-rate 0.15 --sla-breach-rate 0.20"
 fi
 
 if [[ "$skip_transformer" != true ]]; then

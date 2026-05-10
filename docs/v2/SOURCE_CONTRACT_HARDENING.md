@@ -22,7 +22,7 @@ Use each layer for a different class of failure:
 
 ## Local Demo Enforcement
 
-MySQL billing uses `CHECK` constraints in `mysql/init.sql`:
+MySQL billing uses `CHECK` constraints in `db/mysql/init.sql`:
 
 - `payments.amount_cents >= 0`
 - `refunds.amount_cents >= 0`
@@ -30,7 +30,7 @@ MySQL billing uses `CHECK` constraints in `mysql/init.sql`:
 - `payment_method IN ('card', 'wire', 'insurance')`
 - `refund_reason IN ('duplicate_charge', 'returned_goods', 'contract_adjustment')`
 
-MongoDB engagement uses a strict JSON schema validator in `mongo/init.js` for `support_tickets`:
+MongoDB engagement uses a strict JSON schema validator in `db/mongo/init.js` for `support_tickets`:
 
 - Required `ticket_id`, `customer_id`, `priority`, `status`, and `opened_at`.
 - `ticket_id` and `customer_id` must be non-empty strings.
@@ -38,11 +38,11 @@ MongoDB engagement uses a strict JSON schema validator in `mongo/init.js` for `s
 - `opened_at` must be a BSON date.
 - `sla_due_at` and `closed_at` may be BSON dates or `null`.
 
-The `mongo-setup` service mounts and runs the committed `mongo/init.js` so local collection creation and `collMod` updates use the same validator.
+The `mongo-setup` service mounts and runs the committed `db/mongo/init.js` so local collection creation and `collMod` updates use the same validator.
 
 ## Data Contract Coverage
 
-`contracts/cdc-data-contracts.json` declares source-side quality rules under `sourceQualityRules`. For quality-sensitive MySQL and Mongo sources, the validator checks both the contract metadata and the local DDL/schema implementation:
+`config/contracts/cdc-data-contracts.json` declares source-side quality rules under `sourceQualityRules`. For quality-sensitive MySQL and Mongo sources, the validator checks both the contract metadata and the local DDL/schema implementation:
 
 ```bash
 python tools/validate_contracts.py
@@ -66,6 +66,6 @@ The validator fails when:
 
 ## Rollout Notes
 
-Local `CREATE TABLE IF NOT EXISTS` changes only apply automatically to a fresh MySQL volume. Existing local stacks need either a volume reset or equivalent `ALTER TABLE ... ADD CONSTRAINT` statements. Mongo validation is idempotent because `mongo/init.js` creates the collection when missing and uses `collMod` when it already exists.
+Local `CREATE TABLE IF NOT EXISTS` changes only apply automatically to a fresh MySQL volume. Existing local stacks need either a volume reset or equivalent `ALTER TABLE ... ADD CONSTRAINT` statements. Mongo validation is idempotent because `db/mongo/init.js` creates the collection when missing and uses `collMod` when it already exists.
 
 In production, never add hard source constraints blindly to dirty tables. First run profiling queries, backfill or quarantine bad rows, add the constraint in a non-blocking mode if the engine supports it, validate, then switch to enforcing mode.

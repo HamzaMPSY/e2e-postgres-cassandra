@@ -18,14 +18,14 @@ class ValidateDeploymentsTest(unittest.TestCase):
     def test_detects_missing_required_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for relative in REQUIRED_FILES - {"deployments/aws/main.tf"}:
+            for relative in REQUIRED_FILES - {"infra/deployments/aws/main.tf"}:
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("placeholder", encoding="utf-8")
 
             result = validate_deployments(root)
 
-        self.assertIn("Missing deployment file: deployments/aws/main.tf", result.errors)
+        self.assertIn("Missing deployment file: infra/deployments/aws/main.tf", result.errors)
 
     def test_rejects_committed_tickets_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -47,26 +47,26 @@ class ValidateDeploymentsTest(unittest.TestCase):
     def test_rejects_latest_image_tags(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))
-            values = root / "deployments" / "datacenter" / "helm" / "omnicare-cdc" / "values.yaml"
+            values = root / "infra" / "deployments" / "datacenter" / "helm" / "omnicare-cdc" / "values.yaml"
             values.write_text("image: registry.example.com/omnicare/transformer:latest", encoding="utf-8")
 
             result = validate_deployments(root)
 
         self.assertIn(
-            "deployments/datacenter/helm/omnicare-cdc/values.yaml: do not use floating latest image tags",
+            "infra/deployments/datacenter/helm/omnicare-cdc/values.yaml: do not use floating latest image tags",
             result.errors,
         )
 
     def test_rejects_public_ingress_cidr(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = _minimal_repo(Path(tmp))
-            main = root / "deployments" / "aws" / "main.tf"
+            main = root / "infra" / "deployments" / "aws" / "main.tf"
             main.write_text(main.read_text(encoding="utf-8") + '\n"0.0.0.0/0"\n', encoding="utf-8")
 
             result = validate_deployments(root)
 
         self.assertIn(
-            "deployments/aws/main.tf: do not expose deployment templates to 0.0.0.0/0",
+            "infra/deployments/aws/main.tf: do not expose deployment templates to 0.0.0.0/0",
             result.errors,
         )
 
@@ -83,37 +83,37 @@ def _minimal_repo(root: Path) -> Path:
 
 
 REQUIRED_PATTERNS_FOR_TESTS = {
-    "deployments/aws/main.tf": [
+    "infra/deployments/aws/main.tf": [
         "aws_mskconnect_connector",
         "kafka_cluster_encryption_in_transit",
         "aws_iam_policy",
         "security-controls.json",
     ],
-    "deployments/aws/worker.properties": [
+    "infra/deployments/aws/worker.properties": [
         "config.providers=secrets",
         "connector.client.config.override.policy=All",
         "errors.log.include.messages=false",
     ],
-    "deployments/gcp/main.tf": [
+    "infra/deployments/gcp/main.tf": [
         "google_datastream_stream",
         "google_dataflow_flex_template_job",
         "google_secret_manager",
         "security-controls.json",
     ],
-    "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-kafka.yaml": [
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/strimzi-kafka.yaml": [
         "kind: Kafka",
         "kind: KafkaNodePool",
         "authorization:",
         "tls: true",
     ],
-    "deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml": [
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/strimzi-connect.yaml": [
         "kind: KafkaConnect",
         "config.providers: secrets",
         "connector.client.config.override.policy: All",
         "errors.log.include.messages: false",
         "authentication:",
     ],
-    "deployments/datacenter/helm/omnicare-cdc/templates/kafka-users.yaml": [
+    "infra/deployments/datacenter/helm/omnicare-cdc/templates/kafka-users.yaml": [
         "kind: KafkaUser",
         "patternType: prefix",
         "dlq.prod.omnicare.transformer",
@@ -122,12 +122,12 @@ REQUIRED_PATTERNS_FOR_TESTS = {
         "AWS",
         "GCP",
         "Datacenter Kubernetes",
-        "deployments/aws",
-        "deployments/gcp",
-        "deployments/datacenter/helm/omnicare-cdc",
+        "infra/deployments/aws",
+        "infra/deployments/gcp",
+        "infra/deployments/datacenter/helm/omnicare-cdc",
     ],
     "docs/v2/CONNECTOR_TEMPLATES.md": [
-        "connectors/production/",
+        "config/connectors/production/",
         "config.providers=secrets",
         "errors.log.include.messages=false",
         "Source TLS",
